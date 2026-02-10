@@ -13,6 +13,7 @@ import PaymentRoutes from './src/routes/payment.route.js';
 import UploadRoutes from './src/routes/upload.route.js';
 import LectureRoutes from './src/routes/lecture.route.js';
 import TeachingRoutes from './src/routes/teaching.route.js';
+import TaskRoutes from './src/routes/task.route.js';
 
 // Import Webhook Controller directly
 import { webhook } from "./src/controllers/webhook.controller.js";
@@ -54,6 +55,8 @@ app.use("/api", CourseRoutes);
 app.use("/api", UploadRoutes);
 app.use("/api", LectureRoutes)
 app.use("/api", TeachingRoutes)
+app.use("/api", TaskRoutes)
+
 
 // --- START SERVER ---
 const PORT = process.env.PORT || 3000;
