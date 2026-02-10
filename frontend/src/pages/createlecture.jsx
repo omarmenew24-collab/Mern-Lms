@@ -1,6 +1,5 @@
 import { useState } from "react";
 import axios from "axios";
-import usecourseStore from "../store/coursestore";
 import { useParams } from "react-router-dom";
 import { useCreateLecture } from "../api/lecture";
 import { useNavigate } from "react-router-dom";
@@ -16,7 +15,6 @@ const LectureForm = () => {
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const {createLecture} = usecourseStore();
   const{ courseId } = useParams();
   const {createMyLecture, isPending, isError} = useCreateLecture(courseId);
   const navigate = useNavigate();
