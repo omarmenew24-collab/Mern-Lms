@@ -172,7 +172,6 @@ export const useGetStudentSubmissionsByCourse = (courseId, studentId) => {
   const getStudentSubmissionsByCourse = async () => {
     const res = await axiosInstance.get(
       `/course/${courseId}/student/${studentId}/submissions`,
-      { withCredentials: true }
     );
     return res.data.submissions;
   };
