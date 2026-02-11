@@ -78,15 +78,29 @@ const CourseDashboard = () => {
   // Added logic to check for 100% completion
   const isFullProgress = progressData?.progress === 100;
 
-  const handleDelete = async (taskId) => {
-    if (!window.confirm("Are you sure you want to delete this task?")) return;
-    try {
-      deleteMyTask(taskId);
-    } catch (error) {
-      console.log("Error deleting task:", error);
-    }
-  };
+const handleDelete = async (taskId) => {
+  // Step 1: Confirm deletion
+  const confirmed = window.confirm("Are you sure you want to delete this task?");
+  if (!confirmed) {
+    toast("Deletion cancelled"); // optional
+    return;
+  }
 
+  // Step 2: Show loading toast
+  const loadingToastId = toast.loading("Deleting task...");
+
+  try {
+    await deleteMyTask(taskId); // make sure this returns a Promise
+
+    // Step 3: Success
+    toast.dismiss(loadingToastId); // remove loading
+    toast.success("Task deleted successfully!");
+  } catch (error) {
+    toast.dismiss(loadingToastId);
+    console.log("Error deleting task:", error);
+    toast.error(error.response?.data?.message || "Failed to delete task");
+  }
+};
 
 const handledeletelecture = (lectureId) => {
   // Show toast confirmation

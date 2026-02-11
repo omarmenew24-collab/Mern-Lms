@@ -60,20 +60,52 @@ export const signup = async (req, res) => {
 };
 
 export const login = async (req, res) => {
-  const { name, password } = req.body;
-
   try {
+    const { name, password } = req.body;
+
+    // 1️⃣ Validate input
+    if (!name || !password) {
+      return res.status(400).json({
+        message: "Name and password are required",
+      });
+    }
+
+    // 2️⃣ Find user
     const user = await User.findOne({ name });
-    if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
+    if (!user) {
+      return res.status(401).json({
+        message: "Invalid credentials",
+      });
+    }
+
+    // 3️⃣ Check password
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
-    if (!isPasswordCorrect)
-      return res.status(400).json({ message: "Invalid credentials" });
 
-    // Generate JWT cookie
-    const token = generateToken(user, res);
+    if (!isPasswordCorrect) {
+      return res.status(401).json({
+        message: "Invalid credentials",
+      });
+    }
 
-    // Unified response
+    // 4️⃣ Ensure JWT_SECRET exists
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET is missing in environment variables");
+      return res.status(500).json({
+        message: "Server configuration error",
+      });
+    }
+
+    // 5️⃣ Generate token
+    const token = generateToken(user);
+
+    if (!token) {
+      return res.status(500).json({
+        message: "Token generation failed",
+      });
+    }
+
+    // 6️⃣ Build safe user response
     const userResponse = {
       _id: user._id,
       name: user.name,
@@ -82,20 +114,25 @@ export const login = async (req, res) => {
       picture: user.picture || "",
     };
 
-    res.status(200).json({
+    // 7️⃣ Send response
+    return res.status(200).json({
       message: "Login successful",
-      token, // 🔥 send token to frontend
+      token,
       userResponse,
     });
+
   } catch (error) {
     console.error("Login error:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    return res.status(500).json({
+      message: "Internal Server Error",
+    });
   }
 };
 
+
 export const logout = (req, res) => {
   try {
-    res.clearCookie("jwt", cookieOptions);
+    // Nothing to clear on server
     return res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     console.error("Error in logout controller", error.message);
@@ -103,26 +140,33 @@ export const logout = (req, res) => {
   }
 };
 
-export const checkAuth = (req, res, next) => {
-    const token = req.headers.authorization;
-  console.log("the token from checkauth:", token);
 
-  if (!token) {
+export const checkAuth = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  console.log("Authorization header:", authHeader);
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res
       .status(401)
       .json({ message: "Unauthorized - No Token Provided" });
   }
 
+  const token = authHeader.split(" ")[1];
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // contains id and role
-    console.log("req.user from checkAuth is", req.user);
+    req.user = decoded; // contains _id and role
+    console.log("req.user from checkAuth:", req.user);
     next();
   } catch (error) {
-    console.error("JWT verify failed in checkAuth:", error.message);
-    return res.status(403).json({ message: "Invalid or expired token" });
+    console.error("JWT verify failed:", error.message);
+    return res
+      .status(403)
+      .json({ message: "Invalid or expired token" });
   }
 };
+
+
 
 export const updateuserprofile = async (req, res) => {
   try {

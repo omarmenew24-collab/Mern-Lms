@@ -15,7 +15,11 @@ export const useSignup = () => {
     return res.data;
   };
 
-  const { mutateAsync: signup, isPending, isError } = useMutation({
+  const {
+    mutateAsync: signup,
+    isPending,
+    isError,
+  } = useMutation({
     mutationFn: signupUser,
     onSuccess: (data) => {
       toast.success("Signup successful!");
@@ -44,7 +48,11 @@ export const useLogin = () => {
     return res.data;
   };
 
-  const { mutateAsync: login, isPending, isError } = useMutation({
+  const {
+    mutateAsync: login,
+    isPending,
+    isError,
+  } = useMutation({
     mutationFn: loginUser,
     onSuccess: (data) => {
       setUser(data.userResponse); // ✅ only the user
@@ -58,7 +66,6 @@ export const useLogin = () => {
   return { login, isPending, isError };
 };
 
-
 /* =========================
    3. GOOGLE LOGIN
 ========================= */
@@ -69,12 +76,16 @@ export const useGoogleLogin = () => {
     const res = await axiosInstance.post(
       "/auth/google",
       { token },
-      { withCredentials: true }
+      { withCredentials: true },
     );
     return res.data;
   };
 
-  const { mutateAsync: googlelogin, isPending, isError } = useMutation({
+  const {
+    mutateAsync: googlelogin,
+    isPending,
+    isError,
+  } = useMutation({
     mutationFn: googleAuth,
     onSuccess: (data) => {
       setUser(data);
@@ -82,7 +93,7 @@ export const useGoogleLogin = () => {
     },
     onError: (error) => {
       toast.error("Google login failed");
-    }
+    },
   });
 
   return { googlelogin, isPending, isError };
@@ -96,21 +107,32 @@ export const useFetchUser = () => {
   const clearUser = useUserStore((state) => state.clearUser);
 
   const getMe = async () => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      clearUser();
+      return null;
+    }
+
     try {
-      const res = await axiosInstance.get("/auth/me", { withCredentials: true });
-      setUser(res.data);
+      const res = await axiosInstance.get("/auth/me");
+      setUser(res.data); // ✅ fixed
       return res.data;
     } catch (error) {
-      // ✅ If the cookie is expired or invalid, clear the persisted LocalStorage
       clearUser();
+      localStorage.removeItem("token");
       return null;
     }
   };
 
-  const { data: authUser, isLoading, isError } = useQuery({
+  const {
+    data: authUser,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ["authUser"],
     queryFn: getMe,
-    retry: false, 
+    retry: false,
     staleTime: 0, // ✅ Changed to 0 so it always validates the session on mount
   });
 
@@ -128,12 +150,16 @@ export const useUpdateUser = () => {
     const res = await axiosInstance.put(
       `/updateuserprofile/${userId}`,
       updatedFields,
-      { withCredentials: true }
+      { withCredentials: true },
     );
     return res.data;
   };
 
-  const { mutateAsync: updateuser, isPending, isError } = useMutation({
+  const {
+    mutateAsync: updateuser,
+    isPending,
+    isError,
+  } = useMutation({
     mutationFn: updateProfile,
     onSuccess: (data) => {
       setUser(data);
@@ -163,6 +189,7 @@ export const useLogout = () => {
     mutationFn: logoutUser,
     onSuccess: () => {
       clearUser(); // ✅ Wipes LocalStorage
+      localStorage.removeItem("token");
       queryClient.clear(); // ✅ Wipes TanStack Cache
       toast.success("Logged out");
     },

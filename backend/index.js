@@ -30,23 +30,16 @@ app.post(
 );
 
 // --- 2. MIDDLEWARE ---
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-    credentials: true,
-  })
-);
+
+app.use(cors({
+  origin: "*",
+}));
+
 
 // This JSON parser will now only apply to routes BELOW it
 app.use(express.json());
 
-app.use(cookieParser());
-app.use(
-  session({ secret: "secretkey", resave: false, saveUninitialized: false })
-);
 
-app.use(passport.initialize());
-app.use(passport.session());
 
 // --- 3. ROUTES ---
 app.use("/api", PaymentRoutes);
