@@ -42,7 +42,7 @@ const CourseDashboard = () => {
   // --- API HOOKS ---
   const { tasks = [] } = useGetTasks(course?._id);
   const { deleteMyTask } = useDeleteTask(course?._id);
-  const { students } = useGetStudentsByCourse(course?._id);
+  const { students = [] } = useGetStudentsByCourse(course?._id);
   const { lectures = [] } = useGetLecturesByCourse(course?._id);
   const { deleteMyLecture, isPending, isError } = useDeleteLecture(course?._id);
   // ✅ Progress Hooks
@@ -54,6 +54,9 @@ const CourseDashboard = () => {
   const { markLecture } = useMarkLecture(course?._id);
 
   const is_instructor = user?._id === course?.teacher?._id;
+
+  console.log("students",students)
+  console.log("is_instructor",is_instructor)
 
   const isApproved = progressData?.certificateApproved; // Assuming this exists in progressData
 

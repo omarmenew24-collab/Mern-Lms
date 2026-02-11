@@ -182,7 +182,7 @@ export const useLogout = () => {
   const queryClient = useQueryClient();
 
   const logoutUser = async () => {
-    await axiosInstance.post("/logout", {}, { withCredentials: true });
+    await axiosInstance.post("/logout", {});
   };
 
   const { mutateAsync: logout, isPending } = useMutation({

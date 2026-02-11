@@ -73,7 +73,7 @@ const HeaderRightSide = () => {
         {user && hasHydrated ? (
           <>
             <img
-              src={`http://localhost:3000/api/user/${user._id}/picture`}
+              src={`https://mern-lms-backend-ph6i.onrender.com/api/user/${user._id}/picture`}
               alt={user.name}
               className="w-10 h-10 rounded-full cursor-pointer border-2 border-blue-500 hover:scale-105 transition-transform"
               onClick={() => setOpen(!open)}
