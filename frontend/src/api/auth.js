@@ -37,13 +37,17 @@ export const useLogin = () => {
 
   const loginUser = async ({ name, password }) => {
     const res = await axiosInstance.post("/login", { name, password });
+
+    // Save token
+    localStorage.setItem("token", res.data.token);
+
     return res.data;
   };
 
   const { mutateAsync: login, isPending, isError } = useMutation({
     mutationFn: loginUser,
     onSuccess: (data) => {
-      setUser(data);
+      setUser(data.userResponse); // ✅ only the user
       toast.success("Welcome back!");
     },
     onError: (error) => {
@@ -53,6 +57,7 @@ export const useLogin = () => {
 
   return { login, isPending, isError };
 };
+
 
 /* =========================
    3. GOOGLE LOGIN

@@ -9,18 +9,15 @@ export const cookieOptions = {
   path: "/",
 };
 
-export const generateToken = (user,  res) => {
-  const token = jwt.sign({ _id:user._id, role:user.role }, process.env.JWT_SECRET, {
-    expiresIn: "7d",
-  });
+export const generateToken = (user) => {
+  const token = jwt.sign(
+    { _id: user._id, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
 
+  console.log("Generated token:", token);
 
-
-if (process.env.NODE_ENV === "production") cookieOptions.secure = true;
-  res.cookie("jwt", token,cookieOptions);
-  
-
-  console.log("token from generate token",token)
   return token;
 };
 

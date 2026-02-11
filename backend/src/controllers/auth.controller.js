@@ -15,11 +15,14 @@ export const signup = async (req, res) => {
     }
 
     if (password.length < 6) {
-      return res.status(400).json({ message: "Password must be at least 6 characters" });
+      return res
+        .status(400)
+        .json({ message: "Password must be at least 6 characters" });
     }
 
     const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ message: "User already exists" });
+    if (existingUser)
+      return res.status(400).json({ message: "User already exists" });
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -34,7 +37,7 @@ export const signup = async (req, res) => {
     await newUser.save();
 
     // Generate JWT cookie
-    generateToken(newUser, res);
+    const token = generateToken(newUser, res);
 
     // Unified response
     const userResponse = {
@@ -45,15 +48,16 @@ export const signup = async (req, res) => {
       picture: newUser.picture || "",
     };
 
-    res.status(201).json(userResponse);
-
+    res.status(200).json({
+      message: "Login successful",
+      token, // 🔥 send token to frontend
+      userResponse,
+    });
   } catch (error) {
     console.error("Signup error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
-
-
 
 export const login = async (req, res) => {
   const { name, password } = req.body;
@@ -63,10 +67,11 @@ export const login = async (req, res) => {
     if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
-    if (!isPasswordCorrect) return res.status(400).json({ message: "Invalid credentials" });
+    if (!isPasswordCorrect)
+      return res.status(400).json({ message: "Invalid credentials" });
 
     // Generate JWT cookie
-    generateToken(user, res);
+    const token = generateToken(user, res);
 
     // Unified response
     const userResponse = {
@@ -77,18 +82,20 @@ export const login = async (req, res) => {
       picture: user.picture || "",
     };
 
-    res.status(200).json(userResponse);
-
+    res.status(200).json({
+      message: "Login successful",
+      token, // 🔥 send token to frontend
+      userResponse,
+    });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-
 export const logout = (req, res) => {
   try {
-    res.clearCookie("jwt",cookieOptions);
+    res.clearCookie("jwt", cookieOptions);
     return res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     console.error("Error in logout controller", error.message);
@@ -96,14 +103,14 @@ export const logout = (req, res) => {
   }
 };
 
-
-
 export const checkAuth = (req, res, next) => {
-  const token = req.cookies.jwt;
+    const token = req.headers.authorization;
   console.log("the token from checkauth:", token);
 
   if (!token) {
-    return res.status(401).json({ message: "Unauthorized - No Token Provided" });
+    return res
+      .status(401)
+      .json({ message: "Unauthorized - No Token Provided" });
   }
 
   try {
@@ -158,24 +165,24 @@ export const getuserpicture = async (req, res) => {
 export const getteachers = async (req, res) => {
   try {
     const { searchquery } = req.query; // take from query params
-    let filter = { role: 'teacher' };
+    let filter = { role: "teacher" };
 
     if (searchquery) {
-      filter.name = { $regex: searchquery, $options: 'i' }; // case-insensitive
+      filter.name = { $regex: searchquery, $options: "i" }; // case-insensitive
     }
 
-    const teachers = await User.find(filter).select('_id name');
+    const teachers = await User.find(filter).select("_id name");
     res.status(200).json(teachers);
-    console.log("teachers are:", teachers)
+    console.log("teachers are:", teachers);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
-}
+};
 
-export const getcourses = async (req,res) => {
-     try {
-    const courses = await Course.find().populate("teacher", "name"); 
+export const getcourses = async (req, res) => {
+  try {
+    const courses = await Course.find().populate("teacher", "name");
     // populate will replace teacher ObjectId with teacher's name
 
     res.status(200).json(courses);
@@ -183,18 +190,21 @@ export const getcourses = async (req,res) => {
     console.error("Error fetching courses:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
-}
+};
 
 export const getcoursesbyteacher = async (req, res) => {
   try {
     const { teacherId } = req.query;
 
-    const courses = await Course.find({ teacher: teacherId }).populate("teacher", "name");
+    const courses = await Course.find({ teacher: teacherId }).populate(
+      "teacher",
+      "name",
+    );
 
     // If req.user exists, return full info; otherwise limited info
     const result = req.user
       ? courses // full course info for authenticated users
-      : courses.map(course => ({
+      : courses.map((course) => ({
           _id: course._id,
           title: course.title,
           description: course.description,
@@ -205,15 +215,15 @@ export const getcoursesbyteacher = async (req, res) => {
     console.error("Error fetching courses:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
-}
+};
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 export const googleauth = async (req, res) => {
   try {
     const { token } = req.body;
-    
-    console.log("token from authgoogle ", token)
+
+    console.log("token from authgoogle ", token);
     // Verify Google ID token
     const ticket = await client.verifyIdToken({
       idToken: token,
@@ -225,22 +235,20 @@ export const googleauth = async (req, res) => {
 
     // Check if user exists or create new one
     let user = await User.findOne({ email });
-   
 
     if (!user) {
       user = new User({
-        googleId: sub,       // optional field, add to schema if you want
+        googleId: sub, // optional field, add to schema if you want
         email,
-        name: name,      // updated to match schema
-        picture : picture, // updated to match schema
+        name: name, // updated to match schema
+        picture: picture, // updated to match schema
         role: "student", // ✅ ensure default role
       });
       await user.save();
     }
-   console.log("user from auth google ", user)
-   generateToken(user , res);
+    console.log("user from auth google ", user);
+    generateToken(user, res);
 
-   
     const userResponse = {
       _id: user._id,
       name: user.name,
@@ -248,14 +256,14 @@ export const googleauth = async (req, res) => {
       email: user.email || "",
       picture: user.picture || "",
     };
-    console.log("userresonse is ", userResponse)
+    console.log("userresonse is ", userResponse);
 
     res.status(200).json(userResponse);
   } catch (err) {
     console.error("Google login error:", err);
     res.status(401).json({ message: "Invalid Google token" });
   }
-}
+};
 
 export const authme = async (req, res) => {
   try {
@@ -270,10 +278,10 @@ export const authme = async (req, res) => {
       email: user.email || "",
       picture: user.picture || "",
     };
-    console.log("user from authme",userResponse)
+    console.log("user from authme", userResponse);
     res.status(200).json(userResponse);
   } catch (error) {
     console.error("/auth/me error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
-}
+};
