@@ -185,7 +185,6 @@ export const useGetStudentsByCourse = (courseId) => {
   const getStudentsByCourse = async () => {
     const res = await axiosInstance.get(
       `/courses/${courseId}/students`,
-      { withCredentials: true }
     );
     return res.data.students;
   };
