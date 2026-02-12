@@ -291,7 +291,7 @@ export const googleauth = async (req, res) => {
       await user.save();
     }
     console.log("user from auth google ", user);
-    generateToken(user);
+    const token = generateToken(user);
 
     const userResponse = {
       _id: user._id,
@@ -302,8 +302,11 @@ export const googleauth = async (req, res) => {
     };
     console.log("userresonse is ", userResponse);
 
-    res.status(200).json(userResponse);
-  } catch (err) {
+return res.status(200).json({
+      message: "Login successful",
+      token,
+      userResponse,
+    });  } catch (err) {
     console.error("Google login error:", err);
     res.status(401).json({ message: "Invalid Google token" });
   }

@@ -79,6 +79,8 @@ export const useGoogleLogin = () => {
       "/auth/google",
       { token },
     );
+        localStorage.setItem("token", res.data.token);
+
     return res.data;
   };
 
@@ -89,7 +91,7 @@ export const useGoogleLogin = () => {
   } = useMutation({
     mutationFn: googleAuth,
     onSuccess: (data) => {
-      setUser(data);
+      setUser(data.userResponse);
       toast.success("Google Login successful!");
     },
     onError: (error) => {
