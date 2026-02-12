@@ -291,7 +291,7 @@ export const googleauth = async (req, res) => {
       await user.save();
     }
     console.log("user from auth google ", user);
-     generateToken(user);
+    const gentoken =  generateToken(user);
 
     const userResponse = {
       _id: user._id,
@@ -304,7 +304,7 @@ export const googleauth = async (req, res) => {
 
 return res.status(200).json({
       message: "Login successful",
-      token,
+      gentoken,
       userResponse,
     });  } catch (err) {
     console.error("Google login error:", err);
