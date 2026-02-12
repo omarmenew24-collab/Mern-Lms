@@ -15,7 +15,7 @@ import { protectRoute } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-router.post("/createcourse/:courseId", createcourse);
+router.post("/createcourse", createcourse);
 
 router.delete("/deletecourse/:courseId", protectRoute, deletecourse)
 
