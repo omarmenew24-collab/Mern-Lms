@@ -37,7 +37,7 @@ export const signup = async (req, res) => {
     await newUser.save();
 
     // Generate JWT cookie
-    const token = generateToken(newUser, res);
+    const token = generateToken(newUser);
 
     // Unified response
     const userResponse = {

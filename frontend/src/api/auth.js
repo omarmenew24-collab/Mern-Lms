@@ -12,6 +12,8 @@ export const useSignup = () => {
 
   const signupUser = async ({ name, password, email }) => {
     const res = await axiosInstance.post("/signup", { name, password, email });
+        localStorage.setItem("token", res.data.token);
+
     return res.data;
   };
 
@@ -23,7 +25,7 @@ export const useSignup = () => {
     mutationFn: signupUser,
     onSuccess: (data) => {
       toast.success("Signup successful!");
-      setUser(data);
+      setUser(data.userResponse);
     },
     onError: (error) => {
       toast.error(error.response?.data?.message || "Signup failed");
