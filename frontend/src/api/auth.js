@@ -78,7 +78,6 @@ export const useGoogleLogin = () => {
     const res = await axiosInstance.post(
       "/auth/google",
       { token },
-      { withCredentials: true },
     );
     return res.data;
   };
