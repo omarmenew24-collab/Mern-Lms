@@ -291,7 +291,7 @@ export const googleauth = async (req, res) => {
       await user.save();
     }
     console.log("user from auth google ", user);
-    const token = generateToken(user);
+     generateToken(user);
 
     const userResponse = {
       _id: user._id,
