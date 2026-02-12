@@ -12,7 +12,7 @@ export const useSignup = () => {
 
   const signupUser = async ({ name, password, email }) => {
     const res = await axiosInstance.post("/signup", { name, password, email });
-        localStorage.setItem("token", res.data.token);
+    localStorage.setItem("token", res.data.token);
 
     return res.data;
   };
@@ -75,11 +75,8 @@ export const useGoogleLogin = () => {
   const setUser = useUserStore((state) => state.setUser);
 
   const googleAuth = async (token) => {
-    const res = await axiosInstance.post(
-      "/auth/google",
-      { token },
-    );
-        localStorage.setItem("token", res.data.token);
+    const res = await axiosInstance.post("/auth/google", { token });
+    localStorage.setItem("token", res.data.token);
 
     return res.data;
   };
