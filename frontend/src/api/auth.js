@@ -150,7 +150,6 @@ export const useUpdateUser = () => {
     const res = await axiosInstance.put(
       `/updateuserprofile/${userId}`,
       updatedFields,
-      { withCredentials: true },
     );
     return res.data;
   };

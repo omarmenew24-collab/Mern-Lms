@@ -14,6 +14,8 @@ import UploadRoutes from './src/routes/upload.route.js';
 import LectureRoutes from './src/routes/lecture.route.js';
 import TeachingRoutes from './src/routes/teaching.route.js';
 import TaskRoutes from './src/routes/task.route.js';
+import AdminRoutes from './src/routes/admin.route.js';
+
 
 // Import Webhook Controller directly
 import { webhook } from "./src/controllers/webhook.controller.js";
@@ -49,6 +51,8 @@ app.use("/api", UploadRoutes);
 app.use("/api", LectureRoutes)
 app.use("/api", TeachingRoutes)
 app.use("/api", TaskRoutes)
+app.use("/api", AdminRoutes)
+
 
 
 // --- START SERVER ---

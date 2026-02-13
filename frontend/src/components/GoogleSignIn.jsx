@@ -21,9 +21,11 @@ export default function GoogleSignIn() {
       console.log("Logged in user:", loggedInUser);
       if (!loggedInUser) return;
 
-      if (loggedInUser.role === "teacher" || loggedInUser.role === "admin") {
+      if (loggedInUser?.role === "teacher" ) {
         navigate("/teacher");
-      } else {
+      }else if (loggedInUser?.role === "admin") {
+        navigate("/admindashboard");
+      }else {
         navigate("/student");
       }
     } catch (err) {

@@ -22,6 +22,7 @@ import { TaskSubmissions } from "./pages/tasksubmissions";
 import StudentDetails from "./pages/studentdetails";
 import LectureForm from "./pages/createlecture";
 import Header from "./components/Header";
+import AdminDashboard from "./pages/admindashboard";
 
 // ✅ Import the fetch hook and the Zustand store
 import { useFetchUser } from "./api/auth";
@@ -80,6 +81,8 @@ function App() {
         />
 
         <Route path="*" element={<Navigate to="/" />} />
+
+        <Route path="/admindashboard" element={<AdminDashboard />} />
       </Routes>
 
       <Toaster position="top-center" reverseOrder={false} />

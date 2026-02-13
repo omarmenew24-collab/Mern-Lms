@@ -3,16 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import {useCreateCourse} from "../api/course"
+import { useCreateCourse } from "../api/course";
 import { useGetTeachersList } from "../api/course";
 
 export default function CreateCourseForm() {
-    const [searchQuery, setSearchQuery] = useState("");
 
-  const{teacherslist} = useGetTeachersList(searchQuery);
+  const [searchQuery, setSearchQuery] = useState("");
+  const { teacherslist } = useGetTeachersList(searchQuery);
   //const { getteacherslist } = usecourseStore();
   const navigate = useNavigate();
-  const {createmycourse} = useCreateCourse();
+  const { createmycourse } = useCreateCourse();
   const [form, setForm] = useState({
     title: "",
     teacher: "",
@@ -32,10 +32,10 @@ export default function CreateCourseForm() {
 
       if (value.trim().length > 0) {
         debounceRef.current = setTimeout(async () => {
-         // const results = await teacherslist({ searchquery: value });
-         setSearchQuery(value);
-         const results = teacherslist.filter((t) =>
-            t.name.toLowerCase().includes(value.toLowerCase())
+          // const results = await teacherslist({ searchquery: value });
+          setSearchQuery(value);
+          const results = teacherslist.filter((t) =>
+            t.name.toLowerCase().includes(value.toLowerCase()),
           );
           setTeacherResults(results);
           setShowDropdown(true);

@@ -11,7 +11,8 @@ const HeaderLeftSide = () => {
   const handleDashboard = () => {
     if (!user) return;
     if (user.role === "student") navigate("/student");
-    else if (user.role === "teacher" || user.role === "admin")
+    else if (user.role === "admin") navigate("/admindashboard");
+    else if (user.role === "teacher" )
       navigate("/teacher");
   };
 
@@ -22,7 +23,8 @@ const HeaderLeftSide = () => {
    // we need here to handle the admin case to outline the dashboard
   const isOnMyPage =
     (user?.role === "student" && location.pathname.startsWith("/student")) ||
-    (user?.role === "teacher" && location.pathname.startsWith("/teacher"));
+    (user?.role === "teacher" && location.pathname.startsWith("/teacher")) ||
+    (user?.role === "admin" && location.pathname.startsWith("/admin"))
 
   return (
     <div>
@@ -46,7 +48,7 @@ const HeaderLeftSide = () => {
           </span>
         </div>
 
-        {user?.role !== "teacher" && user &&(
+        {user?.role !== "teacher" && user && user?.role !== "admin" && (
           <button
             onClick={handleTeach}
             className={`px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 shadow-md transition ${
@@ -59,7 +61,7 @@ const HeaderLeftSide = () => {
           </button>
         )}
 
-        {user?.role === "teacher" && (
+        {user?.role === "teacher" || user?.role === "admin"&& (
           <button
             className={`px-4 py-2 rounded-lg font-semibold shadow-md transition ${
               darkMode
