@@ -34,11 +34,7 @@ const HeaderLeftSide = () => {
           className="flex items-center space-x-2"
           onClick={() => navigate("/")}
         >
-          <img
-            src="../assets/logo.jpg"
-            alt="Course Academy Logo"
-            className="h-10 w-10 object-contain"
-          />
+         
           <span
             className={`text-2xl font-bold hover:text-blue-700 transition-colors ${
               darkMode ? "text-blue-400" : "text-blue-600"
