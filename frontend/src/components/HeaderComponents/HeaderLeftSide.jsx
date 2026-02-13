@@ -46,7 +46,7 @@ const HeaderLeftSide = () => {
           </span>
         </div>
 
-        {user?.role !== "teacher" && (
+        {user?.role !== "teacher" && user &&(
           <button
             onClick={handleTeach}
             className={`px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 shadow-md transition ${
