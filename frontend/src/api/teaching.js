@@ -8,9 +8,7 @@ import toast from "react-hot-toast";
 ========================= */
 export const useGetTeachingRequests = () => {
   const getRequests = async () => {
-    const res = await axiosInstance.get("/getteachingrequests", {
-      withCredentials: true,
-    });
+    const res = await axiosInstance.get("/getteachingrequests");
     // Return the requests array from your backend response
     console.log("Fetched Requests:", res.data);
     console.log("Requests Data:", res.data?.requests);

@@ -76,7 +76,7 @@ export const useGoogleLogin = () => {
 
   const googleAuth = async (token) => {
     const res = await axiosInstance.post("/auth/google", { token });
-    localStorage.setItem("token", res.data.token);
+    localStorage.setItem("token", res.data.gentoken);
 
     return res.data;
   };
