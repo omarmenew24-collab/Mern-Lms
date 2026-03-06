@@ -5,7 +5,7 @@ import CourseCompletion from "../models/courseCompletion.model.js";
 export const cookieOptions = {
   httpOnly: true,
   sameSite: "lax",
-  secure: false, // true in prod
+  secure: true, // true in prod
   path: "/",
 };
 export const generateAccessToken = (user) => {
