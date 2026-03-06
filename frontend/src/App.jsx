@@ -14,7 +14,7 @@ import UpdateProfile from "./pages/updateprofile";
 import BecomeTeacherForm from "./pages/teacherform";
 import TeachingRequest from "./pages/teachingrequest";
 import useUserStore from "./store/userstore";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Checkout from "./pages/payment";
 import Success from "./pages/success";
 import FileUploadForm from "./pages/uploadfile";
@@ -26,14 +26,38 @@ import AdminDashboard from "./pages/admindashboard";
 
 // ✅ Import the fetch hook and the Zustand store
 import { useFetchUser } from "./api/auth";
+import UsersPage from "./pages/userspage";
+import UserDetailsPage from "./pages/userdetailspage";
+import { initializeAuth } from "./lib/initializeAuth";
+import { useQueryClient } from "@tanstack/react-query";
+
 
 function App() {
-  const { isLoading } = useFetchUser();
+ // const { isLoading } = useFetchUser();
   const user = useUserStore((state) => state.user);
   const hasHydrated = useUserStore((state) => state.hasHydrated); // ✅ Get hydration state
+ const queryClient = useQueryClient();
+
+   const [authReady, setAuthReady] = useState(false);
+
+  useEffect(() => {
+    const init = async () => {
+      await initializeAuth(); // waits until token is set or refresh fails
+      setAuthReady(true);     // now safe to render components
+    };
+    init();
+  }, []);
+
+  if (!authReady) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   // ✅ Wait for LocalStorage AND the API check
-  if (!hasHydrated || isLoading) {
+  if (!hasHydrated ) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -46,11 +70,14 @@ function App() {
 
       <Routes>
         <Route path="/" element={<Home />} />
-        
+
         {/* ✅ Logic: If logged in, redirect away from Login/Signup to Home */}
         <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
-        <Route path="/signup" element={user ? <Navigate to="/" /> : <SignUp />} />
-        
+        <Route
+          path="/signup"
+          element={user ? <Navigate to="/" /> : <SignUp />}
+        />
+
         <Route path="/student" element={<Student />} />
         <Route path="/teacher" element={<Teacher />} />
         <Route path="/createcourse" element={<CreateCourseForm />} />
@@ -80,9 +107,15 @@ function App() {
           element={<LectureForm />}
         />
 
+        <Route path="/admindashboard" element={<AdminDashboard />} />
+
+        <Route path="/allusers" element={<UsersPage />} />
+
         <Route path="*" element={<Navigate to="/" />} />
 
-        <Route path="/admindashboard" element={<AdminDashboard />} />
+        <Route path="/userdetailspage/:userId" element={<UserDetailsPage/>} />
+
+        
       </Routes>
 
       <Toaster position="top-center" reverseOrder={false} />

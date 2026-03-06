@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 /* =========================
    1. GET TEACHING REQUESTS (Admin Only)
 ========================= */
-export const useGetTeachingRequests = () => {
+export const useGetTeachingRequests = (enabled) => {
   const getRequests = async () => {
     const res = await axiosInstance.get("/getteachingrequests");
     // Return the requests array from your backend response
@@ -22,6 +22,8 @@ export const useGetTeachingRequests = () => {
   } = useQuery({
     queryKey: ["teachingRequests"],
     queryFn: getRequests,
+    enabled, // 👈 only runs if admin
+
   });
 
   return { teachingRequests, isLoading, isError };

@@ -17,7 +17,10 @@ export default function GoogleSignIn() {
     setLoading(true);
     try {
       console.log("Google credential:", credentialResponse.credential);
-      const loggedInUser = await googlelogin(credentialResponse.credential);
+
+      const data = await googlelogin(credentialResponse.credential);
+      const loggedInUser = data.userResponse;
+
       console.log("Logged in user:", loggedInUser);
       if (!loggedInUser) return;
 

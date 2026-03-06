@@ -2,9 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
-import session from "express-session";
-import passport from "passport";
-// DB
+
 import { connectDB } from "./src/lib/db.js";
 // Routes
 import AuthRoutes from './src/routes/auth.route.js';
@@ -33,10 +31,15 @@ app.post(
 
 // --- 2. MIDDLEWARE ---
 
-app.use(cors({
-  origin: "*",
-}));
+app.use(
+  cors({
+    origin: "http://localhost:5173", // ✅ exact frontend origin
+    credentials: true,
+  })
+);
 
+// Parse cookies
+app.use(cookieParser());
 
 // This JSON parser will now only apply to routes BELOW it
 app.use(express.json());

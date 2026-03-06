@@ -3,16 +3,22 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { axiosInstance } from "../lib/axios";
 import useUserStore from "../store/userstore"; // ✅ Using consistent store name
 import toast from "react-hot-toast";
+import { useAuthStore } from "../store/useauthstore";
 
 /* =========================
    1. SIGNUP
 ========================= */
+
 export const useSignup = () => {
   const setUser = useUserStore((state) => state.setUser);
+  const setAccessToken = useAuthStore((state) => state.setAccessToken);
 
   const signupUser = async ({ name, password, email }) => {
-    const res = await axiosInstance.post("/signup", { name, password, email });
-    localStorage.setItem("token", res.data.token);
+    const res = await axiosInstance.post("/signup", {
+      name,
+      password,
+      email,
+    });
 
     return res.data;
   };
@@ -25,7 +31,12 @@ export const useSignup = () => {
     mutationFn: signupUser,
     onSuccess: (data) => {
       toast.success("Signup successful!");
+
+      // 🟢 Store user (persisted)
       setUser(data.userResponse);
+
+      // 🔵 Store access token (memory only)
+      setAccessToken(data.accessToken);
     },
     onError: (error) => {
       toast.error(error.response?.data?.message || "Signup failed");
@@ -38,14 +49,17 @@ export const useSignup = () => {
 /* =========================
    2. LOGIN
 ========================= */
+
+
 export const useLogin = () => {
   const setUser = useUserStore((state) => state.setUser);
+  const setAccessToken = useAuthStore((state) => state.setAccessToken);
 
   const loginUser = async ({ name, password }) => {
-    const res = await axiosInstance.post("/login", { name, password });
-
-    // Save token
-    localStorage.setItem("token", res.data.token);
+    const res = await axiosInstance.post("/login", {
+      name,
+      password,
+    });
 
     return res.data;
   };
@@ -57,7 +71,12 @@ export const useLogin = () => {
   } = useMutation({
     mutationFn: loginUser,
     onSuccess: (data) => {
-      setUser(data.userResponse); // ✅ only the user
+      // 🟢 Persist user
+      setUser(data.userResponse);
+
+      // 🔵 Store access token in memory only
+      setAccessToken(data.accessToken);
+
       toast.success("Welcome back!");
     },
     onError: (error) => {
@@ -67,31 +86,26 @@ export const useLogin = () => {
 
   return { login, isPending, isError };
 };
-
 /* =========================
    3. GOOGLE LOGIN
 ========================= */
 export const useGoogleLogin = () => {
   const setUser = useUserStore((state) => state.setUser);
+  const setAccessToken = useAuthStore((state) => state.setAccessToken);
 
   const googleAuth = async (token) => {
     const res = await axiosInstance.post("/auth/google", { token });
-    localStorage.setItem("token", res.data.gentoken);
-
     return res.data;
   };
 
-  const {
-    mutateAsync: googlelogin,
-    isPending,
-    isError,
-  } = useMutation({
+  const { mutateAsync: googlelogin, isPending, isError } = useMutation({
     mutationFn: googleAuth,
     onSuccess: (data) => {
       setUser(data.userResponse);
+      setAccessToken(data.accessToken);   // ✅ new system
       toast.success("Google Login successful!");
     },
-    onError: (error) => {
+    onError: () => {
       toast.error("Google login failed");
     },
   });

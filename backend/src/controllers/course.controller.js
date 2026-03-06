@@ -253,3 +253,28 @@ export const toggleCertificatePermission = async (req, res) => {
     res.status(500).json({ message: "Error", error: error.message });
   }
 };
+
+export const getcoursesbyteacher = async (req, res) => {
+  try {
+    const { teacherId } = req.query;
+
+    const courses = await Course.find({ teacher: teacherId }).populate(
+      "teacher",
+      "name",
+    );
+
+    // If req.user exists, return full info; otherwise limited info
+    const result = req.user
+      ? courses // full course info for authenticated users
+      : courses.map((course) => ({
+          _id: course._id,
+          title: course.title,
+          description: course.description,
+        }));
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("Error fetching courses:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};

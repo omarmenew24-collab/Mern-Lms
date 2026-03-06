@@ -2,6 +2,7 @@ import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 import { useQuery, useMutation , useQueryClient} from "@tanstack/react-query";
 import Student from "../pages/studentpage";
+import { useAuthStore } from "../store/useauthstore";
 
 /* =========================
    CREATE COURSE
@@ -111,6 +112,9 @@ export const useGetTeachersList = (searchquery) => {
    COURSES BY TEACHER
 ========================= */
 export const useGetCoursesByTeacher = (teacherId) => {
+  
+  const token = useAuthStore((state) => state.accessToken);
+
   const getCoursesByTeacher = async () => {
     const res = await axiosInstance.get("/courses/teacher", {
       params: { teacherId },
@@ -125,7 +129,7 @@ export const useGetCoursesByTeacher = (teacherId) => {
   } = useQuery({
     queryKey: ["courses", "teacher", teacherId],
     queryFn: getCoursesByTeacher,
-    enabled: !!teacherId,
+    enabled: !!teacherId && !!token,
   });
 
   return { coursesbyteacher, isLoading, isError };
@@ -159,8 +163,7 @@ export const useGetCoursesByStudent = () => {
 export const useGetTeacherEnrollments = (teacherId) => {
   const getTeacherEnrollments = async () => {
     const res = await axiosInstance.get(
-      `/teacher/${teacherId}/enrollments`,
-      { withCredentials: true }
+      `/teacher/${teacherId}/enrollments`
     );
     return res.data.enrollments;
   };

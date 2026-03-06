@@ -54,7 +54,7 @@ const AdminDashboard = () => {
       value: dashboardstats?.totalUsers || 0,
       icon: Users,
       color: "bg-blue-500",
-      link: "/admin/users",
+      link: "/allusers",
     },
     {
       title: "Students",

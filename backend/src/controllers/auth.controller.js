@@ -1,15 +1,17 @@
 import User from "../models/user.model.js";
 import bcrypt from "bcrypt"; // or "bcrypt"
-import { cookieOptions, generateToken } from "../lib/utils.js";
+import { cookieOptions , generateAccessToken, generateRefreshToken } from "../lib/utils.js";
 import { OAuth2Client } from "google-auth-library";
 import jwt from "jsonwebtoken";
 import Course from "../models/course.model.js";
 import axios from "axios";
 
+
 export const signup = async (req, res) => {
   const { name, password, email } = req.body;
 
   try {
+    // 1️⃣ Validate input
     if (!name || !password || !email) {
       return res.status(400).json({ message: "All fields are required" });
     }
@@ -20,44 +22,54 @@ export const signup = async (req, res) => {
         .json({ message: "Password must be at least 6 characters" });
     }
 
+    // 2️⃣ Check if user exists
     const existingUser = await User.findOne({ email });
-    if (existingUser)
+    if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
+    }
 
+    // 3️⃣ Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 👇 Always set role as "student"
-    const newUser = new User({
+    // 4️⃣ Create new user
+    const newUser = await User.create({
       name,
       email,
       password: hashedPassword,
       role: "student",
     });
 
-    await newUser.save();
+    // 5️⃣ Generate tokens
+    const accessToken = generateAccessToken(newUser);
+    const refreshToken = generateRefreshToken(newUser);
 
-    // Generate JWT cookie
-    const token = generateToken(newUser);
+    // 6️⃣ Set refresh token in HTTP-only cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // HTTPS in prod
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
 
-    // Unified response
-    const userResponse = {
-      _id: newUser._id,
-      name: newUser.name,
-      role: newUser.role,
-      email: newUser.email || "",
-      picture: newUser.picture || "",
-    };
-
-    res.status(200).json({
-      message: "Login successful",
-      token, // 🔥 send token to frontend
-      userResponse,
+    // 7️⃣ Send response
+    res.status(201).json({
+      message: "Signup successful",
+      accessToken,
+      userResponse: {
+        _id: newUser._id,
+        name: newUser.name,
+        role: newUser.role,
+        email: newUser.email || "",
+        picture: newUser.picture || "",
+      },
     });
   } catch (error) {
     console.error("Signup error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+
 
 export const login = async (req, res) => {
   try {
@@ -88,22 +100,17 @@ export const login = async (req, res) => {
       });
     }
 
-    // 4️⃣ Ensure JWT_SECRET exists
-    if (!process.env.JWT_SECRET) {
-      console.error("JWT_SECRET is missing in environment variables");
-      return res.status(500).json({
-        message: "Server configuration error",
-      });
-    }
+    // 4️⃣ Generate tokens
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
 
-    // 5️⃣ Generate token
-    const token = generateToken(user);
-
-    if (!token) {
-      return res.status(500).json({
-        message: "Token generation failed",
-      });
-    }
+    // 5️⃣ Set refresh token in HTTP-only cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // HTTPS in production
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
 
     // 6️⃣ Build safe user response
     const userResponse = {
@@ -117,7 +124,7 @@ export const login = async (req, res) => {
     // 7️⃣ Send response
     return res.status(200).json({
       message: "Login successful",
-      token,
+      accessToken,
       userResponse,
     });
 
@@ -128,7 +135,6 @@ export const login = async (req, res) => {
     });
   }
 };
-
 
 export const logout = (req, res) => {
   try {
@@ -154,7 +160,7 @@ export const checkAuth = (req, res, next) => {
   const token = authHeader.split(" ")[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
     req.user = decoded; // contains _id and role
     console.log("req.user from checkAuth:", req.user);
     next();
@@ -236,30 +242,7 @@ export const getcourses = async (req, res) => {
   }
 };
 
-export const getcoursesbyteacher = async (req, res) => {
-  try {
-    const { teacherId } = req.query;
 
-    const courses = await Course.find({ teacher: teacherId }).populate(
-      "teacher",
-      "name",
-    );
-
-    // If req.user exists, return full info; otherwise limited info
-    const result = req.user
-      ? courses // full course info for authenticated users
-      : courses.map((course) => ({
-          _id: course._id,
-          title: course.title,
-          description: course.description,
-        }));
-
-    res.status(200).json(result);
-  } catch (error) {
-    console.error("Error fetching courses:", error.message);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-};
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -267,8 +250,7 @@ export const googleauth = async (req, res) => {
   try {
     const { token } = req.body;
 
-    console.log("token from authgoogle ", token);
-    // Verify Google ID token
+    // 1️⃣ Verify Google token
     const ticket = await client.verifyIdToken({
       idToken: token,
       audience: process.env.GOOGLE_CLIENT_ID,
@@ -277,22 +259,34 @@ export const googleauth = async (req, res) => {
     const payload = ticket.getPayload();
     const { sub, email, name, picture } = payload;
 
-    // Check if user exists or create new one
+    // 2️⃣ Find or create user
     let user = await User.findOne({ email });
 
     if (!user) {
       user = new User({
-        googleId: sub, // optional field, add to schema if you want
+        googleId: sub,
         email,
-        name: name, // updated to match schema
-        picture: picture, // updated to match schema
-        role: "student", // ✅ ensure default role
+        name,
+        picture,
+        role: "student",
       });
+
       await user.save();
     }
-    console.log("user from auth google ", user);
-    const gentoken =  generateToken(user);
 
+    // 3️⃣ Generate tokens
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+
+    // 4️⃣ Store refresh token in httpOnly cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: false, // change to true in production
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // 5️⃣ Send response
     const userResponse = {
       _id: user._id,
       name: user.name,
@@ -300,15 +294,44 @@ export const googleauth = async (req, res) => {
       email: user.email || "",
       picture: user.picture || "",
     };
-    console.log("userresonse is ", userResponse);
 
-return res.status(200).json({
+    return res.status(200).json({
       message: "Login successful",
-      gentoken,
+      accessToken,
       userResponse,
-    });  } catch (err) {
+    });
+
+  } catch (err) {
     console.error("Google login error:", err);
     res.status(401).json({ message: "Invalid Google token" });
+  }
+};
+
+export const refreshController = async (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
+
+  if (!refreshToken) {
+    return res.status(401).json({ message: "No refresh token" });
+  }
+
+  try {
+    const decoded = jwt.verify(
+      refreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+
+    const user = await User.findById(decoded._id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const accessToken = generateAccessToken(user);
+
+    res.status(200).json({ accessToken });
+
+  } catch (error) {
+    return res.status(403).json({ message: "Invalid refresh token" });
   }
 };
 

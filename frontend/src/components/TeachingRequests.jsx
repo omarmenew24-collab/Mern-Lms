@@ -12,8 +12,11 @@ const TeachingRequests = () => {
   const navigate = useNavigate();
 
   // --- Only fetch teaching requests if the user is admin ---
-  const { teachingRequests, isLoading, isError } =
-    user?.role === "admin" ? useGetTeachingRequests() : { teachingRequests: [], isLoading: false, isError: false };
+ const {
+  teachingRequests = [],
+  isLoading,
+  isError,
+} = useGetTeachingRequests(user?.role === "admin");
 
   const { mutateAsync: deleteRequest } = useDeleteRequest();
 

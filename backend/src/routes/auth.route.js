@@ -8,9 +8,9 @@ import {
   checkAuth,
   getteachers,
   getcourses,
-  getcoursesbyteacher,
   googleauth,
   authme,
+  refreshController
 } from "../controllers/auth.controller.js";
 import { protectRoute } from "../middlewares/auth.middleware.js";
 import { OAuth2Client } from "google-auth-library";
@@ -25,7 +25,6 @@ router.get("/user/:id/picture", getuserpicture);
 router.get("/teachers", getteachers);
 router.get("/courses", getcourses);
 // GET courses by a specific teacher
-router.get("/courses/teacher", protectRoute, getcoursesbyteacher);
 
 //const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -34,5 +33,7 @@ router.post("/auth/google", googleauth);
 // routes/auth.js
 
 router.get("/auth/me", checkAuth, authme);
+router.post("/refresh", refreshController);
+
 
 export default router;

@@ -8,7 +8,8 @@ import {
   getCourseProgress,
   getBulkCourseProgress,
   toggleCertificatePermission,
-  deletecourse
+  deletecourse,
+  getcoursesbyteacher
 } from "../controllers/course.controller.js";
 import { protectRoute } from "../middlewares/auth.middleware.js";
 
@@ -36,9 +37,11 @@ router.get(
 );
 
 
-
 router.get("/progress/:courseId", protectRoute, getCourseProgress);
 
 router.get("/progress/bulk/:courseId",protectRoute, getBulkCourseProgress)
+
+router.get("/courses/teacher", protectRoute, getcoursesbyteacher);
+
 
 export default router;
