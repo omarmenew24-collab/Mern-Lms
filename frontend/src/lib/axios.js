@@ -2,7 +2,7 @@ import axios from "axios";
 import { useAuthStore } from "../store/useauthstore";
 
 export const axiosInstance = axios.create({
-  baseURL: "https://mern-lms-frontend-kcn4.onrender.com/api",
+  baseURL: "https://mern-lms-backend-ph6i.onrender.com/api",
   withCredentials: true,
 });
 
