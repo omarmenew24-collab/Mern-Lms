@@ -12,8 +12,8 @@ export default function FileUploadForm() {
   });
 
   // ✅ Added courseId here (Make sure your App.jsx route matches this)
-  const { courseId, taskId, studentId } = useParams(); 
-  
+  const { courseId, taskId, studentId } = useParams();
+
   // ✅ Initialize the progress mutation
   const { markTask } = useMarkTask(courseId);
 
@@ -39,15 +39,17 @@ export default function FileUploadForm() {
     const formData = new FormData();
     formData.append("file", upload.file);
     formData.append("taskId", taskId);
-    formData.append("studentId", studentId);
+    formData.append("courseId", courseId);
 
-    setUpload((prev) => ({ ...prev, loading: true, status: "⏳ Uploading..." }));
+    setUpload((prev) => ({
+      ...prev,
+      loading: true,
+      status: "⏳ Uploading...",
+    }));
 
     try {
       // 1. Upload the file
-      const { data } = await axiosInstance.post("/upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const { data } =  await axiosInstance.post("/upload", formData, { withCredentials: true });
 
       // 2. ✅ UPDATE PROGRESS: Only if the upload was successful
       await markTask(taskId);
@@ -63,8 +65,7 @@ export default function FileUploadForm() {
         ...prev,
         loading: false,
         status:
-          "❌ Upload failed: " +
-          (err.response?.data?.error || err.message),
+          "❌ Upload failed: " + (err.response?.data?.error || err.message),
       }));
     }
   };

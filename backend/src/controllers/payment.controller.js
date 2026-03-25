@@ -15,7 +15,7 @@ export const paymentIntent = async (req, res) => {
   console.log("--- Payment Intent Request Started ---");
   try {
 
-    const studentId = req.user.id; // from JWT auth
+    const studentId = req.user._id; // from JWT auth
 
     const { courseId} = req.body;
 

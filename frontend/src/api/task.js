@@ -235,7 +235,7 @@ export const useMarkTask = (courseId) => {
     },
     onSuccess: () => {
       // Invalidate the progress query so the progress bar updates
-      queryClient.invalidateQueries({ queryKey: ["courseProgress", courseId] });
+      queryClient.invalidateQueries({ queryKey: ["courseprogress", courseId] });
       toast.success("Task marked as completed!");
     },
     onError: (error) => {

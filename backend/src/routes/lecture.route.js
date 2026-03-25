@@ -14,8 +14,8 @@ router.post("/courses/lecture/:courseId/:lectureId",protectRoute, markLectureAsC
 
 router.delete("/courses/lecture/:courseId/:lectureId",protectRoute, deleteLecture )
 
-router.post("/course/:courseId/createLecture", createLecture);
+router.post("/course/:courseId/createLecture", protectRoute, createLecture);
 
-router.get("/course/:courseId/lectures", getLecturesByCourse);
+router.get("/course/:courseId/lectures", protectRoute, getLecturesByCourse);
 
 export default router;

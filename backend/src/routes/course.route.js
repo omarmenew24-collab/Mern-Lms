@@ -16,23 +16,23 @@ import { protectRoute } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-router.post("/createcourse", createcourse);
+router.post("/createcourse", protectRoute, createcourse);
 
 router.delete("/deletecourse/:courseId", protectRoute, deletecourse)
 
 // this needs a protection
-router.post("/togglecertificate/:courseId/:studentId",toggleCertificatePermission)
+router.post("/togglecertificate/:courseId/:studentId",protectRoute,toggleCertificatePermission)
 
 
 router.get("/courses/enrolled",protectRoute, getstudentcourses);
 
 
-router.get("/teacher/:teacherId/enrollments", getTeacherEnrollments);
+router.get("/teacher/:teacherId/enrollments", protectRoute, getTeacherEnrollments);
 
-router.get("/courses/:courseId/students", getStudentsByCourse);
+router.get("/courses/:courseId/students",protectRoute, getStudentsByCourse);
 
 router.get(
-  "/course/:courseId/student/:studentId/submissions",
+  "/course/:courseId/student/:studentId/submissions",protectRoute,
   getStudentSubmissionsByCourse
 );
 

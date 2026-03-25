@@ -1,38 +1,91 @@
 import Course from "../models/course.model.js";
-import User from "../models/user.model.js"; // so you can find the teacher
 import Enrollment from "../models/enrollment.model.js"
 import Task from "../models/task.model.js";
 import Submission from "../models/submission.model.js";
-import Lecture from "../models/lecture.model.js";
 import CourseCompletion from "../models/courseCompletion.model.js";
 import { updateUnifiedProgress } from "../lib/utils.js";
 
+// Authorization helper
+const requireCourseTeacherOrAdmin = async (req, courseId, res) => {
+  const course = await Course.findById(courseId).select("teacher");
+
+  if (!course) {
+    res.status(404).json({ message: "Course not found" });
+    return null;
+  }
+
+  if (req.user?.role === "admin") return course;
+
+  if (
+    req.user?.role === "teacher" &&
+    course.teacher.toString() === req.user._id.toString()
+  ) {
+    return course;
+  }
+
+  res.status(403).json({ message: "Access denied" });
+  return null;
+};
+
+const activeOrLegacyEnrollmentFilter = {
+  $or: [{ status: "active" }, { status: { $exists: false } }],
+};
+
+const requireStudentEnrolled = async (req, courseId, res) => {
+  const enrollment = await Enrollment.findOne({
+    student: req.user._id,
+    course: courseId,
+    ...activeOrLegacyEnrollmentFilter,
+  });
+
+  if (!enrollment) {
+    res.status(403).json({ message: "You are not enrolled in this course" });
+    return null;
+  }
+
+  return enrollment;
+};
+
+// ======================
+// CREATE TASK
+// ======================
 export const createtask = async (req, res) => {
   try {
     const { courseId } = req.params;
     const { title, description, type, dueDate, examDetails } = req.body;
 
-    // Find the course
     const course = await Course.findById(courseId);
     if (!course) return res.status(404).json({ message: "Course not found" });
 
-    // Only the teacher of the course can create tasks
-    if (course.teacher.toString() !== req.user._id.toString())
-      return res.status(403).json({ message: "Only the teacher can create tasks" });
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
 
-    // Create the task document
+    if (!(req.user.role === "admin" || course.teacher.toString() === req.user._id.toString())) {
+      return res.status(403).json({ message: "Only the course teacher can create tasks" });
+    }
+
     const task = await Task.create({
       title,
       description,
       type,
-      dueDate: type === "assignment" ? dueDate : undefined, // only for assignments
-      examDetails: type === "exam" ? examDetails : undefined, // only for exams
+      dueDate: type === "assignment" ? dueDate : undefined,
+      examDetails: type === "exam" ? examDetails : undefined,
       createdBy: req.user._id,
     });
 
-    // Add task reference to course
     course.tasks.push(task._id);
     await course.save();
+
+    // 🔥 ADDED
+    const enrollments = await Enrollment.find({
+      course: courseId,
+      ...activeOrLegacyEnrollmentFilter,
+    }).select("student");
+
+    await Promise.all(
+      enrollments.map((e) =>
+        updateUnifiedProgress(e.student, courseId)
+      )
+    );
 
     res.status(201).json({ message: "Task created successfully", task });
   } catch (err) {
@@ -41,43 +94,89 @@ export const createtask = async (req, res) => {
   }
 };
 
+// ======================
+// GET TASKS
+// ======================
 export const gettasks = async (req, res) => {
   try {
     const { courseId } = req.params;
 
-    const course = await Course.findById(courseId).populate("tasks");
-    if (!course) return res.status(404).json({ message: "Course not found" });
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const course = await Course.findById(courseId).select("teacher tasks");
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    const isAdmin = req.user.role === "admin";
+
+    const isOwnerTeacher =
+      course.teacher.toString() === req.user._id.toString();
+
+    const isEnrolled = await Enrollment.exists({
+      student: req.user._id,
+      course: courseId,
+      ...activeOrLegacyEnrollmentFilter,
+    });
+
+    if (!isAdmin && !isOwnerTeacher && !isEnrolled) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const populatedCourse = await Course.findById(courseId).populate("tasks");
 
     res.status(200).json({
       message: "Tasks fetched successfully",
-      tasks: course.tasks // now includes full task objects
+      tasks: populatedCourse.tasks,
     });
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
+// ======================
+// DELETE TASK
+// ======================
 export const deletetask = async (req, res) => {
   try {
     const { courseId, taskId } = req.params;
 
-    // Find the course
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
+    if (req.user.role === "student") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
     const course = await Course.findById(courseId);
     if (!course) return res.status(404).json({ message: "Course not found" });
 
-    // Find the index of the task to delete
     const taskIndex = course.tasks.findIndex(task => task._id.toString() === taskId);
     if (taskIndex === -1) return res.status(404).json({ message: "Task not found" });
 
-    if (course.teacher.toString() !== req.user._id.toString())
+    if (
+      req.user.role !== "admin" &&
+      course.teacher.toString() !== req.user._id.toString()
+    )
       return res.status(403).json({ message: "Only the teacher can delete tasks" });
 
-    // Remove the task from the array
     course.tasks.splice(taskIndex, 1);
-
-    // Save the updated course
     await course.save();
+
+    // 🔥 ADDED
+    const enrollments = await Enrollment.find({
+      course: courseId,
+      ...activeOrLegacyEnrollmentFilter,
+    }).select("student");
+
+    await Promise.all(
+      enrollments.map((e) =>
+        updateUnifiedProgress(e.student, courseId)
+      )
+    );
 
     return res.status(200).json({ message: "Task deleted successfully", tasks: course.tasks });
   } catch (error) {
@@ -86,32 +185,45 @@ export const deletetask = async (req, res) => {
   }
 };
 
+// ======================
+// UPDATE TASK
+// ======================
 export const updatetask = async (req, res) => {
   try {
     const { courseId, taskId } = req.params;
     const { title, description, type, dueDate, examDetails } = req.body;
 
-    // 1. Find the task directly by its ID
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
     const task = await Task.findById(taskId);
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
     }
 
-    // 2. Security Check: Ensure the user updating is the teacher of the course
     const course = await Course.findById(courseId);
-    if (!course || course.teacher.toString() !== req.user._id.toString()) {
+    if (!course || (req.user.role !== "admin" && course.teacher.toString() !== req.user._id.toString())) {
       return res.status(403).json({ message: "Not authorized to update this task" });
     }
 
-    // 3. Update the fields on the Task document
     if (title) task.title = title;
     if (description) task.description = description;
     if (type) task.type = type;
     if (dueDate) task.dueDate = dueDate;
     if (examDetails) task.examDetails = examDetails;
 
-    // 4. Save the task document
     await task.save();
+
+    // 🔥 ADDED
+    const enrollments = await Enrollment.find({
+      course: courseId,
+      ...activeOrLegacyEnrollmentFilter,
+    }).select("student");
+
+    await Promise.all(
+      enrollments.map((e) =>
+        updateUnifiedProgress(e.student, courseId)
+      )
+    );
 
     res.status(200).json({ message: "Task updated successfully", task });
   } catch (error) {
@@ -120,20 +232,44 @@ export const updatetask = async (req, res) => {
   }
 };
 
+// ======================
+// GRADE SUBMISSION
+// ======================
 export const gradesubmission = async (req, res) => {
   try {
     const { taskId, studentId } = req.params;
-    const { grade } = req.body; // grade from request body
+    const { grade } = req.body;
+
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
+    if (req.user.role !== "teacher" && req.user.role !== "admin") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const course = await Course.findOne({ tasks: taskId }).select("teacher _id");
+    if (!course) return res.status(404).json({ message: "Course not found for task" });
+
+    if (req.user.role === "teacher" && course.teacher.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const studentEnrollment = await Enrollment.findOne({
+      student: studentId,
+      course: course._id,
+      ...activeOrLegacyEnrollmentFilter,
+    });
+
+    if (!studentEnrollment) {
+      return res.status(403).json({ message: "Student is not enrolled in this course" });
+    }
 
     const submission = await Submission.findOne({
-      taskId: taskId,
-      studentId: studentId
+      taskId,
+      studentId
     });
 
     if (!submission) {
-      return res.status(404).json({
-        message: "Submission not found"
-      });
+      return res.status(404).json({ message: "Submission not found" });
     }
 
     submission.grade = grade;
@@ -146,20 +282,52 @@ export const gradesubmission = async (req, res) => {
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      message: "Server error"
-    });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
+// ======================
+// SUBMISSIONS
+// ======================
 export const submissions = async (req, res) => {
   try {
     const { taskId } = req.params;
 
-    // Find all submissions for this task
-    const studentSubmissions = await Submission.find({ taskId:taskId })
-      .populate("studentId", "name email") // populate student info if you have refs
-      .populate("taskId", "title dueDate"); // optional: populate task info
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
+    const course = await Course.findOne({ tasks: taskId }).select("teacher _id");
+    if (!course) return res.status(404).json({ message: "Course not found for task" });
+
+    if (req.user.role === "student") {
+      const enrollment = await Enrollment.findOne({
+        student: req.user._id,
+        course: course._id,
+        ...activeOrLegacyEnrollmentFilter,
+      });
+
+      if (!enrollment) {
+        return res.status(403).json({ message: "You are not enrolled in this course" });
+      }
+
+      const studentSubmissions = await Submission.find({
+        taskId,
+        studentId: req.user._id,
+      })
+        .populate("studentId", "name email")
+        .populate("taskId", "title dueDate");
+
+      return res.status(200).json(studentSubmissions);
+    }
+
+    if (req.user.role === "teacher") {
+      if (course.teacher.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+    }
+
+    const studentSubmissions = await Submission.find({ taskId })
+      .populate("studentId", "name email")
+      .populate("taskId", "title dueDate");
 
     if (!studentSubmissions || studentSubmissions.length === 0) {
       return res.status(404).json({ message: "No submissions found for this task" });
@@ -173,24 +341,44 @@ export const submissions = async (req, res) => {
   }
 };
 
+// ======================
+// MARK TASK COMPLETE
+// ======================
 export const markTaskAsComplete = async (req, res) => {
   try {
     const { courseId, taskId } = req.params;
     const studentId = req.user._id;
 
-    // 1. Mark this specific task as done
+    if (!req.user) {
+      return res.status(403).json({ message: "Only students can complete tasks" });
+    }
+
+    const enrollment = await Enrollment.findOne({
+      student: studentId,
+      course: courseId,
+      ...activeOrLegacyEnrollmentFilter,
+    });
+
+    if (!enrollment) {
+      return res.status(403).json({ message: "You are not enrolled in this course" });
+    }
+
+    const ownsTask = await Course.findOne({ _id: courseId, tasks: taskId }).select("_id");
+    if (!ownsTask) {
+      return res.status(400).json({ message: "Task does not belong to this course" });
+    }
+
     await CourseCompletion.findOneAndUpdate(
       { student: studentId, course: courseId },
       { $addToSet: { completedTasks: taskId } },
       { upsert: true }
     );
 
-    // 2. Recalculate total progress
     const updatedRecord = await updateUnifiedProgress(studentId, courseId);
 
     res.status(200).json({
       message: "Task marked as complete",
-      completedTasks: updatedRecord.completedTasks, // Return this for UI checkmarks
+      completedTasks: updatedRecord.completedTasks,
       progress: updatedRecord.progress
     });
   } catch (error) {

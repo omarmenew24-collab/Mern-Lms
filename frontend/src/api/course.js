@@ -226,7 +226,7 @@ export const useGetCourseProgress = (courseId, studentId) => {
 
   const {data: progressData , isLoading , isError} =  useQuery({
     // ✅ Add studentId to queryKey so it refetches when the student changes
-    queryKey: ["courseProgress", courseId, studentId], 
+    queryKey: ["courseprogress", courseId, studentId], 
     queryFn: getCourseProgress,
     // ✅ Keep enabled logic flexible
     enabled: !!courseId, 

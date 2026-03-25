@@ -26,7 +26,7 @@ router.delete("/courses/:courseId/tasks/:taskId", protectRoute, deletetask);
 
 router.put("/courses/:courseId/tasksupdate/:taskId", protectRoute, updatetask);
 
-router.get("/submissions/:taskId", submissions);
+router.get("/submissions/:taskId", protectRoute, submissions);
 
 export default router;
 

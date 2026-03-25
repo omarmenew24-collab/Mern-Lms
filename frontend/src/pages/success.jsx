@@ -6,7 +6,7 @@ export default function Success() {
   const { courseId } = useParams();
   const user = useUserStore((state) => state.user);
   console.log("courseId in success",courseId)
-  console.log("zuser", user)
+  console.log("user", user)
 
   // Using the pattern matching your task.js logic
   // This hook automatically polls the backend every 3 seconds 

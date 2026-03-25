@@ -2,7 +2,7 @@ import { useState } from "react"; // Added useState for local button loading
 import { useParams, useNavigate } from "react-router-dom";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
-import useStore from "../store/userstore";
+import useUserStore from "../store/userstore";
 import { useGetPaymentIntent } from "../api/payment"; // Updated to the Query hook
 
 const stripePromise = loadStripe("pk_test_51S4KZSBiu0YNe79tH8owEYRj5FiJkp4OuV48AxirNSnO63d635fMWE7sUJKCPnQ897Lr1BP53pnuckQlqsQzXrVa0098hw6Qkt");
@@ -75,11 +75,11 @@ function CheckoutForm() {
 
 export default function Checkout() {
   const { courseId } = useParams();
-  const { zuser } = useStore();
+  const { user } = useUserStore();
   
   // ✅ NO useEffect here. 
   // useQuery (useGetPaymentIntent) fires automatically on mount.
-  const { data, isLoading, isError } = useGetPaymentIntent(courseId, zuser?._id);
+  const { data, isLoading, isError } = useGetPaymentIntent(courseId, user?._id);
 
   // Extract clientSecret from data (which is res.data from the queryFn)
   const clientSecret = data?.clientSecret;

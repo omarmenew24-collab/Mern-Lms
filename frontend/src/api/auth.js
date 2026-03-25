@@ -132,7 +132,7 @@ export const useFetchUser = () => {
       const res = await axiosInstance.get("/auth/me");
       setUser(res.data); // ✅ fixed
       return res.data;
-    } catch (error) {
+    } catch {
       clearUser();
       localStorage.removeItem("token");
       return null;
@@ -179,7 +179,7 @@ export const useUpdateUser = () => {
       queryClient.invalidateQueries({ queryKey: ["authUser"] });
       toast.success("Profile updated!");
     },
-    onError: (error) => {
+    onError: () => {
       toast.error("Failed to update profile");
     },
   });
@@ -192,6 +192,7 @@ export const useUpdateUser = () => {
 ========================= */
 export const useLogout = () => {
   const clearUser = useUserStore((state) => state.clearUser);
+  const clearAuth = useAuthStore((state) => state.clearAuth);
   const queryClient = useQueryClient();
 
   const logoutUser = async () => {
@@ -202,6 +203,7 @@ export const useLogout = () => {
     mutationFn: logoutUser,
     onSuccess: () => {
       clearUser(); // ✅ Wipes LocalStorage
+      clearAuth(); // ✅ Wipes in-memory access token
       localStorage.removeItem("token");
       queryClient.clear(); // ✅ Wipes TanStack Cache
       toast.success("Logged out");

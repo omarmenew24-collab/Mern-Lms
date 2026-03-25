@@ -31,57 +31,59 @@ export const generateRefreshToken = (user) => {
  * Works for Lectures, Tasks, and future Exams
  */
 export const updateUnifiedProgress = async (studentId, courseId) => {
-  // 1. Fetch the completion record and the course blueprint
-  // Note: Populate "tasks" and "lectures" to get their counts accurately
-  const [completion, course] = await Promise.all([
+  // 1️⃣ Fetch course and student's progress record
+  const [course, completion] = await Promise.all([
+    Course.findById(courseId).populate("lectures tasks"),
     CourseCompletion.findOne({ student: studentId, course: courseId }),
-    Course.findById(courseId).populate("lectures tasks")
   ]);
 
-  if (!completion || !course) {
-    throw new Error("Progress record or Course not found");
+  if (!course) throw new Error("Course not found");
+
+  // 2️⃣ Create progress record if missing
+  let progressDoc = completion;
+  if (!progressDoc) {
+    progressDoc = await CourseCompletion.create({
+      student: studentId,
+      course: courseId,
+      completedLectures: [],
+      completedTasks: [],
+      progress: 0,
+      isCompleted: false,
+    });
   }
 
-  // 2. Count TOTAL items from the Course Blueprint
-  const totalLectures = course.lectures?.length || 0;
-  const totalTasks = course.tasks?.length || 0;
-  // If your Course model has an 'exams' array, count it; otherwise default to 0
-  const totalExams = course.exams?.length || 0; 
-  
-  const totalRequiredItems = totalLectures + totalTasks + totalExams;
+  // 3️⃣ Convert course items to IDs for easy comparison
+  const validTaskIds = course.tasks.map(t => t._id.toString());
+  const validLectureIds = course.lectures.map(l => l._id.toString());
 
-  // Safety: If there's nothing in the course yet, progress is 0
-  if (totalRequiredItems === 0) {
-    completion.progress = 0;
-    return await completion.save();
-  }
+  // 4️⃣ Keep only tasks/lectures that still exist in the course
+  progressDoc.completedTasks = progressDoc.completedTasks.filter(t =>
+    validTaskIds.includes(t.toString())
+  );
+  progressDoc.completedLectures = progressDoc.completedLectures.filter(l =>
+    validLectureIds.includes(l.toString())
+  );
 
-  // 3. Count COMPLETED items from the Student's Progress Record
-  const completedLecturesCount = completion.completedLectures?.length || 0;
-  const completedTasksCount = completion.completedTasks?.length || 0;
-  
-  // Ensure we handle the completedExams count (even if the array doesn't exist yet)
-  const completedExamsCount = completion.completedExams?.length || 0; 
+  // 5️⃣ Count total and completed items
+  const totalItems = validTaskIds.length + validLectureIds.length;
+  const completedItems = progressDoc.completedTasks.length + progressDoc.completedLectures.length;
 
-  const totalCompletedItems = completedLecturesCount + completedTasksCount + completedExamsCount;
+  // 6️⃣ Calculate progress percentage
+  progressDoc.progress = totalItems === 0
+    ? 0
+    : Math.min(Math.round((completedItems / totalItems) * 100), 100);
 
-  // 4. Calculate Percentage (Ensure it never exceeds 100)
-  const rawProgress = (totalCompletedItems / totalRequiredItems) * 100;
-  completion.progress = Math.min(Math.round(rawProgress), 100);
-
-  // 5. Handle Completion Status & Logic
-  // We check if it's 100 and transition it to completed
-  if (completion.progress === 100) {
-    if (!completion.isCompleted) {
-      completion.isCompleted = true;
-      completion.completedAt = new Date();
+  // 7️⃣ Update completion status
+  if (progressDoc.progress === 100) {
+    if (!progressDoc.isCompleted) {
+      progressDoc.isCompleted = true;
+      progressDoc.completedAt = new Date();
     }
   } else {
-    // If the teacher adds a new task LATER, the student might drop below 100%
-    // This resets the status if the course grows
-    completion.isCompleted = false;
-    completion.completedAt = null;
+    progressDoc.isCompleted = false;
+    progressDoc.completedAt = null;
   }
 
-  return await completion.save();
+  // 8️⃣ Save and return
+  return await progressDoc.save();
 };

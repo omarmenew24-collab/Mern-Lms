@@ -38,6 +38,7 @@ const CourseDashboard = () => {
   const course = location.state;
   const user = useUserStore((state) => state.user);
   const navigate = useNavigate();
+  console.log("course:", course);
 
   // --- API HOOKS ---
   const { tasks = [] } = useGetTasks(course?._id);
