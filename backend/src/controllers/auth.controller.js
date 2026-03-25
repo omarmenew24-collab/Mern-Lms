@@ -107,8 +107,8 @@ export const login = async (req, res) => {
     // 5️⃣ Set refresh token in HTTP-only cookie
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // HTTPS in production
-      sameSite: "strict",
+      secure: true, // HTTPS in production
+      sameSite: "none",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -281,8 +281,8 @@ export const googleauth = async (req, res) => {
     // 4️⃣ Store refresh token in httpOnly cookie
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: false, // change to true in production
-      sameSite: "lax",
+      secure: true, // change to true in production
+      sameSite: "none",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 

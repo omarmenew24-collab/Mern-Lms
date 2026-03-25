@@ -43,6 +43,7 @@ app.use(cookieParser());
 // This JSON parser will now only apply to routes BELOW it
 app.use(express.json());
 
+app.set("trust proxy", 1);
 // --- 3. ROUTES ---
 app.use("/api", PaymentRoutes);
 app.use("/api", AuthRoutes);
