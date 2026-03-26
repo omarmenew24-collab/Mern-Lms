@@ -7,24 +7,23 @@ const HeaderLeftSide = () => {
   const navigate = useNavigate();
   const { darkMode } = useDarkMode();
   const user = useUserStore((state) => state.user);
-
+  console.log("user:", user?.role);
   const handleDashboard = () => {
     if (!user) return;
     if (user.role === "student") navigate("/student");
     else if (user.role === "admin") navigate("/admindashboard");
-    else if (user.role === "teacher" )
-      navigate("/teacher");
+    else if (user.role === "teacher") navigate("/teacher");
   };
 
-    const handleTeach = () => {
+  const handleTeach = () => {
     navigate("/teacherform");
   };
 
-   // we need here to handle the admin case to outline the dashboard
+  // we need here to handle the admin case to outline the dashboard
   const isOnMyPage =
     (user?.role === "student" && location.pathname.startsWith("/student")) ||
     (user?.role === "teacher" && location.pathname.startsWith("/teacher")) ||
-    (user?.role === "admin" && location.pathname.startsWith("/admin"))
+    (user?.role === "admin" && location.pathname.startsWith("/admin"));
 
   return (
     <div>
@@ -34,7 +33,6 @@ const HeaderLeftSide = () => {
           className="flex items-center space-x-2"
           onClick={() => navigate("/")}
         >
-         
           <span
             className={`text-2xl font-bold hover:text-blue-700 transition-colors ${
               darkMode ? "text-blue-400" : "text-blue-600"
@@ -57,14 +55,16 @@ const HeaderLeftSide = () => {
           </button>
         )}
 
-        {user?.role === "teacher" || user?.role === "admin"&& (
+        {(user?.role === "teacher" || user?.role === "admin") && (
           <button
             className={`px-4 py-2 rounded-lg font-semibold shadow-md transition ${
               darkMode
                 ? "bg-green-600 text-white hover:bg-green-500"
                 : "bg-green-600 text-white hover:bg-green-700"
             }`}
-            onClick={() => {navigate("/createcourse")}}
+            onClick={() => {
+              navigate("/createcourse");
+            }}
           >
             Create Course
           </button>
@@ -81,8 +81,8 @@ const HeaderLeftSide = () => {
                       : "bg-purple-800 text-white ring-purple-400"
                   }`
                 : darkMode
-                ? "bg-purple-600 text-white hover:bg-purple-500"
-                : "bg-purple-600 text-white hover:bg-purple-700"
+                  ? "bg-purple-600 text-white hover:bg-purple-500"
+                  : "bg-purple-600 text-white hover:bg-purple-700"
             }`}
           >
             Dashboard

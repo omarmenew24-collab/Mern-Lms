@@ -4,7 +4,7 @@ import express from "express";
 
 const router = express.Router();
 
-router.get("/dashboardstats", protectRoute, getDashboardStats)
+router.get("/dashboardstats", protectRoute,adminOnly, getDashboardStats)
 router.get("/users", protectRoute, adminOnly, getAllUsers);
 router.delete("/users/:id", protectRoute, adminOnly, softDeleteUser);
 router.patch("/users/:id/role", protectRoute, adminOnly, changeUserRole);
