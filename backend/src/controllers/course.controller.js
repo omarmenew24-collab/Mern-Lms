@@ -27,6 +27,17 @@ const requireCourseTeacherOrAdmin = async (req, courseId, res) => {
   return null;
 };
 
+export const getcourses = async (req, res) => {
+  try {
+    const courses = await Course.find().populate("teacher", "name");
+    // populate will replace teacher ObjectId with teacher's name
+
+    res.status(200).json(courses);
+  } catch (error) {
+    console.error("Error fetching courses:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
 export const createcourse = async (req, res) => {
   const { title, description, category } = req.body;
 

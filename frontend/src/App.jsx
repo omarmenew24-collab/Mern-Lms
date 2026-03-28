@@ -115,6 +115,8 @@ function App() {
 
         <Route path="/userdetailspage/:userId" element={<UserDetailsPage/>} />
 
+        <Route path="/admin/courses" element={<Courses/>}/>
+
         
       </Routes>
 

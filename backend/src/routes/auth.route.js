@@ -7,7 +7,6 @@ import {
   updateuserprofile,
   checkAuth,
   getteachers,
-  getcourses,
   googleauth,
   authme,
   refreshController
@@ -23,7 +22,6 @@ router.post("/logout", logout);
 router.put("/updateuserprofile/:userId", updateuserprofile);
 router.get("/user/:id/picture", getuserpicture);
 router.get("/teachers", getteachers);
-router.get("/courses", getcourses);
 // GET courses by a specific teacher
 
 //const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
