@@ -2,18 +2,19 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
+import { useAuthStore } from "../store/useauthstore";
 
 /* =========================
    1. GET TEACHING REQUESTS (Admin Only)
 ========================= */
 export const useGetTeachingRequests = (enabled) => {
+  const accessToken = useAuthStore((s) => s.accessToken);
   const getRequests = async () => {
     const res = await axiosInstance.get("/getteachingrequests");
-    // Return the requests array from your backend response
-    console.log("Fetched Requests:", res.data);
-    console.log("Requests Data:", res.data?.requests);
     return res.data?.requests || [];
   };
+
+  const canFetch = Boolean(enabled) && Boolean(accessToken);
 
   const {
     data: teachingRequests,
@@ -22,11 +23,16 @@ export const useGetTeachingRequests = (enabled) => {
   } = useQuery({
     queryKey: ["teachingRequests"],
     queryFn: getRequests,
-    enabled, // 👈 only runs if admin
-
+    enabled: canFetch,
   });
 
-  return { teachingRequests, isLoading, isError };
+  return {
+    teachingRequests,
+    isLoading,
+    isError,
+    /** Admin selected but no JWT (e.g. refresh failed); show re-login instead of a fake empty list */
+    needsReauth: Boolean(enabled) && !accessToken,
+  };
 };
 
 /* =========================

@@ -1,29 +1,66 @@
 import express from "express";
-import Course from "../models/course.model.js";
-import User from "../models/user.model.js";
-import Stripe from "stripe";
-import cors from "cors";
-import Enrollment from "../models/enrollment.model.js";
-import { paymentIntent , enrollatcourse , checkenrollment} from "../controllers/payment.controller.js";
-import { protectRoute } from "../middlewares/auth.middleware.js";
+import {
+  paymentIntent,
+  enrollatcourse,
+  bulkEnrollAtCourse,
+  checkenrollment,
+  getCoursePayments,
+  getAdminFinancePayments,
+  syncPaymentIntent,
+} from "../controllers/payment.controller.js";
+import { adminOnly, protectRoute } from "../middlewares/auth.middleware.js";
+import { paymentWriteLimiter } from "../middlewares/rateLimit.middleware.js";
 
 
 
 const router = express.Router();
 
+router.post(
+  "/create-payment-intent",
+  paymentWriteLimiter,
+  protectRoute,
+  paymentIntent,
+);
 
-// Your Secret Test Key
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+router.post(
+  "/sync-payment-intent",
+  paymentWriteLimiter,
+  protectRoute,
+  syncPaymentIntent,
+);
 
 
-router.post("/create-payment-intent",protectRoute,paymentIntent );
+router.post(
+  "/enroll/:courseId/bulk",
+  protectRoute,
+  adminOnly,
+  bulkEnrollAtCourse,
+);
+
+router.post(
+  "/enroll/:courseId/:studentId",
+  protectRoute,
+  adminOnly,
+  enrollatcourse,
+);
 
 
-router.post("/enroll/:courseId/:studentId",enrollatcourse);
 
 
+router.get("/check/:courseId/:studentId", protectRoute, checkenrollment);
 
+router.get(
+  "/admin/courses/:courseId/payments",
+  protectRoute,
+  adminOnly,
+  getCoursePayments,
+);
 
-router.get("/check/:courseId/:studentId",checkenrollment );
+router.get(
+  "/admin/payments",
+  protectRoute,
+  adminOnly,
+  getAdminFinancePayments,
+);
 
 export default router;

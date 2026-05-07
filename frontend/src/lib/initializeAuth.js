@@ -1,23 +1,39 @@
 import { axiosInstance } from "./axios";
 import { useAuthStore } from "../store/useauthstore";
 import useUserStore from "../store/userstore";
-import { useQueryClient } from "@tanstack/react-query";
 
-export const initializeAuth = async () => {
-  const user = useUserStore.getState().user;
-  if (!user) return;
+let authBootstrap = null;
 
-  try {
-    const res = await axiosInstance.post("/refresh");
-    const newAccessToken = res.data.accessToken;
+/**
+ * Cold start: exchange httpOnly refresh cookie for access token + user.
+ * Does not wait on persisted Zustand user (rehydration can lag; gating on `user` skipped refresh).
+ * `authBootstrap` dedupes concurrent runs (e.g. React Strict Mode double mount).
+ */
+export async function initializeAuth() {
+  if (authBootstrap) return authBootstrap;
 
-    useAuthStore.getState().setAccessToken(newAccessToken);
+  authBootstrap = (async () => {
+    try {
+      const res = await axiosInstance.post("/refresh");
+      const newAccessToken = res.data.accessToken;
+      useAuthStore.getState().setAccessToken(newAccessToken);
 
-    // ✅ Refetch queries that depend on auth
-    // Get the default query client from React Query
-  
-  } catch (error) {
-    useUserStore.getState().clearUser();
-    useAuthStore.getState().clearAuth();
-  }
-};
+      if (res.data?.user) {
+        useUserStore.getState().setUser(res.data.user);
+      }
+    } catch (e) {
+      // Always clear in-memory access token.
+      useAuthStore.getState().clearAuth();
+      // If the server rejects the session (expired/invalid refresh cookie), clear persisted user too.
+      // Otherwise the UI still shows a logged-in user with no way to call authenticated APIs (401s).
+      // Transient network errors and 5xx keep persisted user so a retry can recover without a hard logout.
+      if (e?.response?.status === 401) {
+        useUserStore.getState().clearUser();
+      }
+    } finally {
+      authBootstrap = null;
+    }
+  })();
+
+  return authBootstrap;
+}

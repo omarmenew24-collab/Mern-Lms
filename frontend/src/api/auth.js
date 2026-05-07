@@ -1,5 +1,5 @@
 // src/api/auth.js
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { axiosInstance } from "../lib/axios";
 import useUserStore from "../store/userstore"; // ✅ Using consistent store name
 import toast from "react-hot-toast";
@@ -13,12 +13,16 @@ export const useSignup = () => {
   const setUser = useUserStore((state) => state.setUser);
   const setAccessToken = useAuthStore((state) => state.setAccessToken);
 
-  const signupUser = async ({ name, password, email }) => {
-    const res = await axiosInstance.post("/signup", {
-      name,
-      password,
-      email,
-    });
+  const signupUser = async ({ name, password, email, image }) => {
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("password", password);
+    formData.append("email", email);
+    if (image) {
+      formData.append("image", image);
+    }
+
+    const res = await axiosInstance.post("/signup", formData);
 
     return res.data;
   };
@@ -30,13 +34,13 @@ export const useSignup = () => {
   } = useMutation({
     mutationFn: signupUser,
     onSuccess: (data) => {
-      toast.success("Signup successful!");
-
-      // 🟢 Store user (persisted)
-      setUser(data.userResponse);
-
-      // 🔵 Store access token (memory only)
-      setAccessToken(data.accessToken);
+      if (data.needsVerification) {
+        // Toast + navigation are handled in SignUpPage so the message stays visible longer.
+        return;
+      }
+      toast.success(data.message || "You're signed in!");
+      if (data.userResponse) setUser(data.userResponse);
+      if (data.accessToken) setAccessToken(data.accessToken);
     },
     onError: (error) => {
       toast.error(error.response?.data?.message || "Signup failed");
@@ -80,7 +84,12 @@ export const useLogin = () => {
       toast.success("Welcome back!");
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || "Login failed");
+      const msg = error.response?.data?.message || "Login failed";
+      if (error.response?.data?.code === "EMAIL_NOT_VERIFIED") {
+        toast.error(`${msg} You can resend the link from the sign-up page.`);
+      } else {
+        toast.error(msg);
+      }
     },
   });
 
@@ -114,57 +123,31 @@ export const useGoogleLogin = () => {
 };
 
 /* =========================
-   4. FETCH USER (The "Gatekeeper")
-========================= */
-export const useFetchUser = () => {
-  const setUser = useUserStore((state) => state.setUser);
-  const clearUser = useUserStore((state) => state.clearUser);
-
-  const getMe = async () => {
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      clearUser();
-      return null;
-    }
-
-    try {
-      const res = await axiosInstance.get("/auth/me");
-      setUser(res.data); // ✅ fixed
-      return res.data;
-    } catch {
-      clearUser();
-      localStorage.removeItem("token");
-      return null;
-    }
-  };
-
-  const {
-    data: authUser,
-    isLoading,
-    isError,
-  } = useQuery({
-    queryKey: ["authUser"],
-    queryFn: getMe,
-    retry: false,
-    staleTime: 0, // ✅ Changed to 0 so it always validates the session on mount
-  });
-
-  return { authUser, isLoading, isError };
-};
-
-/* =========================
-   5. UPDATE PROFILE
+   4. UPDATE PROFILE
 ========================= */
 export const useUpdateUser = () => {
   const setUser = useUserStore((state) => state.setUser);
   const queryClient = useQueryClient();
 
   const updateProfile = async ({ userId, updatedFields }) => {
-    const res = await axiosInstance.put(
-      `/updateuserprofile/${userId}`,
-      updatedFields,
-    );
+    const formData = new FormData();
+    if (updatedFields.name !== undefined) {
+      formData.append("name", updatedFields.name);
+    }
+    if (updatedFields.picture !== undefined) {
+      formData.append("picture", updatedFields.picture);
+    }
+    if (updatedFields.image) {
+      formData.append("image", updatedFields.image);
+    }
+    if (updatedFields.publicAbout !== undefined) {
+      formData.append("publicAbout", updatedFields.publicAbout);
+    }
+    if (updatedFields.publicProjectLinks !== undefined) {
+      formData.append("publicProjectLinks", JSON.stringify(updatedFields.publicProjectLinks));
+    }
+
+    const res = await axiosInstance.put(`/updateuserprofile/${userId}`, formData);
     return res.data;
   };
 
@@ -175,8 +158,13 @@ export const useUpdateUser = () => {
   } = useMutation({
     mutationFn: updateProfile,
     onSuccess: (data) => {
-      setUser(data);
-      queryClient.invalidateQueries({ queryKey: ["authUser"] });
+      if (data?.user?._id) {
+        queryClient.invalidateQueries({ queryKey: ["public-user", data.user._id] });
+      }
+      const me = useUserStore.getState().user;
+      if (data?.user && me && String(data.user._id) === String(me._id)) {
+        setUser(data.user);
+      }
       toast.success("Profile updated!");
     },
     onError: () => {
@@ -188,7 +176,7 @@ export const useUpdateUser = () => {
 };
 
 /* =========================
-   6. LOGOUT
+   5. LOGOUT
 ========================= */
 export const useLogout = () => {
   const clearUser = useUserStore((state) => state.clearUser);
@@ -202,11 +190,15 @@ export const useLogout = () => {
   const { mutateAsync: logout, isPending } = useMutation({
     mutationFn: logoutUser,
     onSuccess: () => {
-      clearUser(); // ✅ Wipes LocalStorage
-      clearAuth(); // ✅ Wipes in-memory access token
-      localStorage.removeItem("token");
-      queryClient.clear(); // ✅ Wipes TanStack Cache
       toast.success("Logged out");
+    },
+    onError: () => {
+      toast.error("Could not reach the server. You were signed out on this device.");
+    },
+    onSettled: () => {
+      clearUser();
+      clearAuth();
+      queryClient.clear();
     },
   });
 

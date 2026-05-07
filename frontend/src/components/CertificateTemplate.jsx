@@ -15,7 +15,7 @@ const CertificateTemplate = React.forwardRef(({ studentName, courseTitle, date }
         <p className="text-xl text-gray-500 italic mb-10">OF COMPLETION</p>
 
         <p className="text-2xl text-gray-600 mb-2">This is to certify that</p>
-        <h2 className="text-5xl font-bold text-indigo-900 border-b-4 border-gray-300 pb-4 mb-10 min-w-[60%] uppercase">
+        <h2 className="text-5xl font-bold text-brand-900 border-b-4 border-gray-300 pb-4 mb-10 min-w-[60%] uppercase">
           {studentName}
         </h2>
 
@@ -31,8 +31,8 @@ const CertificateTemplate = React.forwardRef(({ studentName, courseTitle, date }
           </div>
           
           <div className="relative">
-             <div className="absolute -top-12 -left-8 opacity-20">
-                <ShieldCheck size={80} className="text-indigo-600" />
+             <div className="absolute -top-12 -start-8 opacity-20">
+                <ShieldCheck size={80} className="text-brand-600" />
              </div>
              <p className="font-serif italic text-3xl text-gray-800 border-b border-gray-400 px-4">Official Platform</p>
              <p className="text-xs text-gray-500 mt-2 uppercase tracking-tighter">Authorized Signature</p>

@@ -46,13 +46,38 @@ const userSchema = new mongoose.Schema(
     },
     isDeleted: { type: Boolean, default: false },
 
-    emailVerified: {
-      type: Boolean,
-      default: false,
-    },
-
     lastLogin: {
       type: Date,
+    },
+
+    /** Password signups require verification when SMTP is configured (`false` until link clicked). */
+    emailVerified: {
+      type: Boolean,
+      default: true,
+    },
+
+    /**
+     * Public “about me” (teachers: shown on course page + /u/:id; students: edit on /profile only).
+     * Not collected at sign-up.
+     */
+    publicAbout: { type: String, default: "", maxlength: 4000, trim: true },
+    /** Optional portfolio / project links (https only), max 10 */
+    publicProjectLinks: {
+      type: [String],
+      default: () => [],
+      validate: {
+        validator: (a) => !a || a.length <= 10,
+        message: "At most 10 project links",
+      },
+    },
+
+    /** In-app + optional email notifications */
+    notificationEmailEnabled: { type: Boolean, default: true },
+    /** all = every email-eligible notif; important = success|warning only */
+    notificationLevel: {
+      type: String,
+      enum: ["all", "important"],
+      default: "all",
     },
   },
   { timestamps: true }

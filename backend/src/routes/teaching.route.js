@@ -1,15 +1,15 @@
 import express from "express"
 import { createteachingrequest, getteachingrequests,reviewrequest,deleterequest } from "../controllers/teaching.controller.js";
-import { protectRoute } from "../middlewares/auth.middleware.js"
+import { protectRoute, adminOnly } from "../middlewares/auth.middleware.js"
 
 const router = express.Router();
 
 router.post("/createteachingrequest", createteachingrequest);
 
-router.get("/getteachingrequests",protectRoute,getteachingrequests)
+router.get("/getteachingrequests", protectRoute, adminOnly, getteachingrequests);
 
-router.put("/reviewrequest/:id",protectRoute, reviewrequest);
+router.put("/reviewrequest/:id", protectRoute, adminOnly, reviewrequest);
 
-router.delete("/deleterequest",protectRoute, deleterequest);
+router.delete("/deleterequest", protectRoute, adminOnly, deleterequest);
 
 export default router;

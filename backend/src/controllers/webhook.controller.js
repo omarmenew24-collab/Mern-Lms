@@ -1,69 +1,113 @@
-import Enrollment from "../models/enrollment.model.js";
 import Stripe from "stripe";
 import dotenv from "dotenv";
+import { applySuccessfulPaymentIntent } from "./payment.controller.js";
+import Payment from "../models/payment.model.js";
+import Chargeback from "../models/chargeback.model.js";
+import { buildEvidenceSnapshot } from "../services/chargebackEvidence.service.js";
+
 dotenv.config();
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
+async function findPaymentByChargeId(chargeId) {
+  if (!chargeId) return null;
+  const byCharge = await Payment.findOne({ stripeChargeId: String(chargeId) });
+  if (byCharge) return byCharge;
+  try {
+    const ch = await stripe.charges.retrieve(String(chargeId));
+    const pi = ch?.payment_intent;
+    const piId = typeof pi === "string" ? pi : pi?.id;
+    if (piId) {
+      return await Payment.findOne({ stripePaymentIntentId: piId });
+    }
+  } catch (e) {
+    console.error("findPaymentByChargeId:", e.message);
+  }
+  return null;
+}
+
+//Webhook = an endpoint on your server that Stripe calls
+
 export const webhook = async (req, res) => {
-  console.log("--- Webhook Request Start ---");
   const sig = req.headers["stripe-signature"];
   let event;
 
   try {
-    // req.body MUST be the raw buffer from express.raw()
     event = stripe.webhooks.constructEvent(
       req.body,
       sig,
-      process.env.STRIPE_WEBHOOK_SECRET
+      process.env.STRIPE_WEBHOOK_SECRET,
     );
-    console.log("✅ Webhook Signature Verified. Event Type:", event.type);
   } catch (err) {
     console.error("❌ Webhook verification failed:", err.message);
-    console.log("Current Secret used:", process.env.STRIPE_WEBHOOK_SECRET);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Handle the event
   if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object;
-
-    // 🔍 DEBUG: Check what is inside metadata
-    console.log("📦 Full Metadata from Stripe:", paymentIntent.metadata);
-
     const { studentId, courseId } = paymentIntent.metadata || {};
 
     if (!studentId || !courseId) {
-      console.error("⚠️  Metadata missing! Enrollment cannot be created.");
-      console.log("PaymentIntent ID:", paymentIntent.id);
+      console.error("Webhook: missing metadata on PI", paymentIntent.id);
+      // 200: bad metadata will not fix itself on retry
     } else {
-      console.log(`🚀 Attempting enrollment for Student: ${studentId}, Course: ${courseId}`);
-
-      try {
-        const existingEnrollment = await Enrollment.findOne({
-          student: studentId,
-          course: courseId,
-        });
-
-        if (!existingEnrollment) {
-          const enrollment = await Enrollment.create({ 
-            student: studentId, 
-            course: courseId 
-          });
-          console.log("✨ Enrollment successfully created in MongoDB:", enrollment._id);
-        } else {
-          console.log("ℹ️ Student is already enrolled in this course.");
-        }
-      } catch (dbErr) {
-        console.error("❌ Database Error during enrollment:", dbErr.message);
+      const result = await applySuccessfulPaymentIntent(paymentIntent);
+      if (!result.ok) {
+        console.error("applySuccessfulPaymentIntent failed:", result.reason);
+        // 500 so Stripe retries (handler is idempotent on stripePaymentIntentId)
+        return res.status(500).json({ error: result.reason });
       }
     }
-  } else if (event.type === "payment_intent.created") {
-      console.log("⏳ Payment Intent was created, waiting for success...");
-  } else {
-    console.log("❓ Unhandled event type:", event.type);
   }
 
-  console.log("--- Webhook Request End ---");
-  res.status(200).json({ received: true });
+  if (event.type === "charge.dispute.created") {
+    const dispute = event.data.object;
+    const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge?.id;
+    try {
+      const payment = await findPaymentByChargeId(chargeId);
+      if (!payment) {
+        console.warn("charge.dispute.created: no local Payment for charge", chargeId);
+      } else {
+        const evidence = await buildEvidenceSnapshot(payment._id);
+        const amountMajor = (dispute.amount || 0) / 100;
+        const cur = (dispute.currency || "usd").toLowerCase();
+        const dateOpened = new Date((dispute.created || 0) * 1000);
+        const existing = await Chargeback.findOne({ payment: payment._id });
+        if (!existing) {
+          await Chargeback.create({
+            payment: payment._id,
+            user: payment.student,
+            course: payment.course,
+            orderLabel: payment.stripePaymentIntentId || String(payment._id),
+            amount: amountMajor,
+            currency: cur,
+            dateOpened,
+            status: "open",
+            provider: "stripe",
+            stripeDisputeId: dispute.id,
+            evidenceSnapshot: evidence,
+            evidenceCapturedAt: new Date(),
+          });
+        } else {
+          await Chargeback.updateOne(
+            { _id: existing._id },
+            {
+              $set: {
+                stripeDisputeId: dispute.id,
+                evidenceSnapshot: evidence,
+                evidenceCapturedAt: new Date(),
+                amount: amountMajor,
+                currency: cur,
+              },
+            },
+          );
+        }
+      }
+    } catch (e) {
+      console.error("charge.dispute.created handler:", e);
+      return res.status(500).json({ error: "dispute_handler_failed" });
+    }
+  }
+
+  return res.status(200).json({ received: true });
 };

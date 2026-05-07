@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import useStore from "../store/userstore";
 import { useGoogleLogin } from "../api/auth";
+import { paths } from "../config/paths";
+import toast from "react-hot-toast";
 const clientId =
   "174418105400-tvtocprb1jfrf14t8g7lqab62i48shhb.apps.googleusercontent.com";
 
@@ -27,13 +29,12 @@ export default function GoogleSignIn() {
       if (loggedInUser?.role === "teacher" ) {
         navigate("/teacher");
       }else if (loggedInUser?.role === "admin") {
-        navigate("/admindashboard");
+        navigate(paths.admin);
       }else {
         navigate("/student");
       }
     } catch (err) {
-      console.error("Login failed:", err);
-      alert("Login failed. Please try again.");
+      toast.error(err?.response?.data?.message || "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -49,7 +50,7 @@ export default function GoogleSignIn() {
         ) : (
           <GoogleLogin
             onSuccess={handleSuccess}
-            onError={() => console.log("Google Login Failed")}
+            onError={() => toast.error("Google sign-in was cancelled or failed.")}
             width="150"  // optional: control width
           />
         )}

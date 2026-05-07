@@ -8,19 +8,38 @@ export const cookieOptions = {
   secure: true, // true in prod
   path: "/",
 };
-export const generateAccessToken = (user) => {
+const JWT_ALG = "HS256";
+
+/**
+ * Access token binds to a `UserSession` (`sid`) so the session can be revoked (logout/TTL)
+ * and so each device has a distinct token pair.
+ * @param {import("mongoose").Types.ObjectId | string} sessionId
+ */
+export const generateAccessToken = (user, sessionId) => {
+  const sid =
+    typeof sessionId === "string"
+      ? sessionId
+      : sessionId?.toString?.() ?? String(sessionId);
   return jwt.sign(
-    { _id: user._id, role: user.role },
+    { _id: user._id, role: user.role, sid },
     process.env.ACCESS_TOKEN_SECRET,
-    { expiresIn: "15m" }
+    { expiresIn: "15m", algorithm: JWT_ALG }
   );
 };
 
-export const generateRefreshToken = (user) => {
+/**
+ * `rv` must match `UserSession.refreshTokenVersion`; incremented on each refresh so old
+ * refresh JWTs cannot be replayed after rotation.
+ */
+export const generateRefreshToken = (user, sessionId, rv = 0) => {
+  const sid =
+    typeof sessionId === "string"
+      ? sessionId
+      : sessionId?.toString?.() ?? String(sessionId);
   return jwt.sign(
-    { _id: user._id },
+    { _id: user._id, sid, rv },
     process.env.REFRESH_TOKEN_SECRET,
-    { expiresIn: "7d" }
+    { expiresIn: "7d", algorithm: JWT_ALG }
   );
 };
 

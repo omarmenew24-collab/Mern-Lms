@@ -6,8 +6,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
    CREATE TASK
 ========================= */
 export const useCreateTask = (courseId) => {
-  const createtask = async ({ title, description, type, dueDate, examDetails }) => {
-    const res = await axiosInstance.post(`/courses/${courseId}/tasks`, { title, description, type, dueDate, examDetails });
+  const createtask = async ({ title, description, type, dueDate, examDetails, resourceUrl, resourceFileName, referenceLink }) => {
+    const res = await axiosInstance.post(`/courses/${courseId}/tasks`, { title, description, type, dueDate, examDetails, resourceUrl, resourceFileName, referenceLink });
 
     if (res.status === 201) {
       toast.success("task create successfully!");
@@ -67,7 +67,6 @@ export const useDeleteTask = (courseId) => {
     const res = await axiosInstance.delete(
       `/courses/${courseId}/tasks/${taskId}`
     );
-    toast.success("Task deleted");
     return res.data;
   };
 
@@ -75,16 +74,13 @@ export const useDeleteTask = (courseId) => {
     mutateAsync: deleteMyTask,
     isPending,
     isError,
-  } = useMutation({ 
+  } = useMutation({
     mutationFn: deletetask,
     onSuccess: () => {
-      // ✅ Use the courseId passed into the hook directly
-      // This ensures the task list for THIS course refreshes
       queryClient.invalidateQueries({ queryKey: ["tasks", courseId] });
-      
-      // ✅ Also invalidate progress because deleting a task changes the % calculation
       queryClient.invalidateQueries({ queryKey: ["courseProgress", courseId] });
-    }
+      toast.success("Task deleted");
+    },
   });
 
   return { deleteMyTask, isPending, isError };
@@ -187,6 +183,26 @@ export const useGetStudentSubmissionsByCourse = (courseId, studentId) => {
   });
 
   return { submissions, isLoading, isError };
+};
+
+/** Enrolled learner: compact grade map for tasks in this course. */
+export const useGetMyCourseSubmissionGrades = (courseId) => {
+  const fetchGrades = async () => {
+    const res = await axiosInstance.get(`/submissions/me/course/${courseId}`);
+    return res.data.grades || [];
+  };
+
+  const {
+    data: grades = [],
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["my-course-submission-grades", courseId],
+    queryFn: fetchGrades,
+    enabled: !!courseId,
+  });
+
+  return { grades, isLoading, isError };
 };
 
 export const useGradeSubmission = (taskId) => {

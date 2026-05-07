@@ -1,22 +1,25 @@
 import React from "react";
 import toast from "react-hot-toast";
 import { useDarkMode } from "../store/darkmode";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useDeleteRequest, useGetTeachingRequests } from "../api/teaching";
 import useUserStore from "../store/userstore";
 import { Trash2, Loader2, Info, BookOpen, User, Mail, ChevronRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const TeachingRequests = () => {
+  const { t } = useTranslation();
   const { darkMode } = useDarkMode();
   const user = useUserStore((state) => state.user);
   const navigate = useNavigate();
 
   // --- Only fetch teaching requests if the user is admin ---
- const {
-  teachingRequests = [],
-  isLoading,
-  isError,
-} = useGetTeachingRequests(user?.role === "admin");
+  const {
+    teachingRequests = [],
+    isLoading,
+    isError,
+    needsReauth,
+  } = useGetTeachingRequests(user?.role === "admin");
 
   const { mutateAsync: deleteRequest } = useDeleteRequest();
 
@@ -28,17 +31,17 @@ const TeachingRequests = () => {
       <div className="flex flex-col gap-3 p-1">
         <div className="flex items-center gap-2">
           <Info size={20} className="text-red-500" />
-          <span className="font-semibold text-gray-800">Confirm Deletion</span>
+          <span className="font-semibold text-gray-800">{t("home.teachingRequests.confirmDeletion")}</span>
         </div>
         <p className="text-sm text-gray-600">
-          Are you sure? This action cannot be undone and the applicant will be removed.
+          {t("home.teachingRequests.confirmDeletionBody")}
         </p>
         <div className="flex gap-2 justify-end mt-2">
           <button
             onClick={() => toast.dismiss(t.id)}
             className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
           >
-            Cancel
+            {t("home.teachingRequests.cancel")}
           </button>
           <button
             onClick={() => {
@@ -47,7 +50,7 @@ const TeachingRequests = () => {
             }}
             className="px-4 py-1.5 bg-red-500 text-white text-xs font-bold rounded-lg hover:bg-red-600 shadow-sm transition-all"
           >
-            Delete
+            {t("home.teachingRequests.delete")}
           </button>
         </div>
       </div>
@@ -61,9 +64,9 @@ const TeachingRequests = () => {
     toast.promise(
       deleteRequest(id),
       {
-        loading: 'Deleting request...',
-        success: 'Successfully removed!',
-        error: (err) => typeof err === 'string' ? err : (err.response?.data?.message || "Could not delete")
+        loading: t("home.teachingRequests.deleting"),
+        success: t("home.teachingRequests.deleted"),
+        error: (err) => typeof err === "string" ? err : (err.response?.data?.message || t("home.teachingRequests.deleteError"))
       }
     );
   };
@@ -77,16 +80,27 @@ const TeachingRequests = () => {
     }
   };
 
-  // --- If not admin, render nothing ---
   if (user?.role !== "admin") return null;
 
-  // --- Render States ---
+  if (needsReauth) {
+    return (
+      <div className="max-w-xl mx-auto my-8 p-4 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/90 dark:bg-amber-950/20 text-center">
+        <p className="text-sm text-gray-800 dark:text-gray-200">
+          {t("home.teachingRequests.reloginHint")}
+        </p>
+        <Link to="/login" className="mt-2 inline-block text-sm font-semibold text-brand-600 hover:text-brand-700">
+          {t("home.teachingRequests.login")}
+        </Link>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="flex flex-col justify-center items-center h-96 space-y-4">
         <Loader2 className="animate-spin h-10 w-10 text-blue-600" />
         <p className={`text-lg font-medium animate-pulse ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
-          Fetching requests...
+          {t("home.teachingRequests.loading")}
         </p>
       </div>
     );
@@ -96,82 +110,77 @@ const TeachingRequests = () => {
     return (
       <div className="max-w-xl mx-auto my-10 p-6 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-4 text-red-800">
         <Info className="shrink-0" />
-        <p className="font-medium">Failed to load teaching requests. Please check your connection or refresh.</p>
+        <p className="font-medium">{t("home.teachingRequests.loadError")}</p>
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-300 ${darkMode ? "bg-gray-950" : "bg-gray-50"}`}>
+    <div className="py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <section>
           <header className="mb-12">
-            <h2 className={`text-4xl font-black tracking-tight ${darkMode ? "text-white" : "text-gray-900"}`}>
-              Instructor Hub
+            <h2 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white">
+              {t("home.teachingRequests.title")}
             </h2>
-            <p className={`mt-3 text-lg ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
-              Review and manage teacher applications.
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              {t("home.teachingRequests.subtitle")}
             </p>
           </header>
 
           {teachingRequests?.length === 0 ? (
-            <div className={`text-center py-32 rounded-[2.5rem] border-4 border-dashed transition-colors ${darkMode ? "border-gray-800 bg-gray-900/50" : "border-gray-200 bg-white"}`}>
-              <div className="bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
-                <User size={32} />
-              </div>
-              <h3 className={`text-xl font-bold ${darkMode ? "text-gray-300" : "text-gray-800"}`}>All Caught Up!</h3>
-              <p className="text-gray-500 mt-1">There are no pending requests at this time.</p>
+            <div className="text-center py-20 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-800">
+              <User size={28} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+              <h3 className="text-base font-bold text-gray-700 dark:text-gray-300">{t("home.teachingRequests.emptyTitle")}</h3>
+              <p className="text-sm text-gray-400 mt-1">{t("home.teachingRequests.emptySubtitle")}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {teachingRequests.map((req) => (
                 <div
                   key={req._id}
-                  onClick={() => navigate(`/teachingrequest/${req._id}`)}
-                  className={`group relative flex flex-col rounded-[2rem] p-6 transition-all duration-300 hover:-translate-y-2 cursor-pointer border-2 ${darkMode ? "bg-gray-900 border-gray-800 hover:border-blue-500/50 shadow-blue-900/10" : "bg-white border-transparent shadow-xl shadow-gray-200/50 hover:border-blue-500"}`}
+                  onClick={() => navigate(`/teaching/requests/${req._id}`)}
+                  className="group flex flex-col rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 cursor-pointer hover:shadow-md transition-shadow"
                 >
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="relative">
-                      <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl font-black shadow-lg shadow-blue-500/30">
-                        {req.user?.name?.charAt(0) || "?"}
-                      </div>
-                      <div className="absolute -bottom-1 -right-1 h-5 w-5 bg-green-500 border-4 border-white dark:border-gray-900 rounded-full"></div>
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="w-10 h-10 rounded-lg bg-brand-100 dark:bg-brand-900/20 flex items-center justify-center text-brand-700 dark:text-brand-300 text-sm font-bold">
+                      {req.user?.name?.charAt(0) || "?"}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest border ${getStatusStyle(req.status)}`}>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${getStatusStyle(req.status)}`}>
                         {req.status}
                       </span>
                       <button
                         onClick={(e) => handleDeleteClick(e, req._id)}
-                        className={`p-2 rounded-xl transition-all ${darkMode ? "bg-gray-800 text-red-400 hover:bg-red-500/20" : "bg-red-50 text-red-500 hover:bg-red-500 hover:text-white"}`}
+                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
                       >
-                        <Trash2 size={18} />
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </div>
 
                   <div className="flex-grow">
-                    <h3 className={`text-2xl font-bold mb-1 leading-tight ${darkMode ? "text-white" : "text-gray-900"}`}>
-                      {req.user?.name || "Applicant Name"}
+                    <h3 className="text-[15px] font-bold text-gray-900 dark:text-white mb-0.5">
+                      {req.user?.name || t("home.teachingRequests.applicant")}
                     </h3>
-                    <div className="flex items-center gap-1.5 text-blue-500 font-semibold text-sm mb-6">
-                      <Mail size={14} />
-                      <span className="truncate">{req.user?.email || "No email provided"}</span>
+                    <div className="flex items-center gap-1.5 text-brand-600 dark:text-brand-400 text-xs mb-3">
+                      <Mail size={12} />
+                      <span className="truncate">{req.user?.email || t("home.teachingRequests.noEmail")}</span>
                     </div>
-                    <div className={`space-y-4 rounded-2xl p-4 ${darkMode ? "bg-gray-950/50" : "bg-gray-50"}`}>
-                      <div className="flex items-start gap-3">
-                        <BookOpen size={18} className="mt-1 text-blue-600" />
+                    <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3">
+                      <div className="flex items-start gap-2">
+                        <BookOpen size={14} className="mt-0.5 text-brand-500" />
                         <div>
-                          <p className="text-xs font-bold uppercase tracking-widest opacity-50 text-gray-500">Desired Subject</p>
-                          <p className={`font-semibold ${darkMode ? "text-gray-100" : "text-gray-800"}`}>{req.subject}</p>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{t("home.teachingRequests.subject")}</p>
+                          <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{req.subject}</p>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-8 flex items-center justify-between group-hover:px-2 transition-all duration-300">
-                    <span className="text-xs font-black uppercase tracking-widest text-blue-600">Review Application</span>
-                    <ChevronRight size={20} className="text-blue-600 group-hover:translate-x-1 transition-transform" />
+                  <div className="mt-4 flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">{t("home.teachingRequests.review")}</span>
+                    <ChevronRight size={14} className="text-brand-500 rtl-flip ltr:group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 transition-transform" />
                   </div>
                 </div>
               ))}

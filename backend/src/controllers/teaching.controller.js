@@ -1,6 +1,7 @@
 import User from "../models/user.model.js";
 import axios from "axios";
 import TeacherRequest from "../models/teachingrequest.model.js";
+import { parseHttpUrl } from "../lib/safeHttpUrl.js";
 
 export const createteachingrequest = async (req, res) => {
   try {
@@ -38,6 +39,18 @@ export const createteachingrequest = async (req, res) => {
         .json({ message: "You already have a pending teaching request" });
     }
 
+    let safePortfolioLink;
+    if (
+      portfolioLink != null &&
+      String(portfolioLink).trim() !== ""
+    ) {
+      const linkCheck = parseHttpUrl(portfolioLink);
+      if (!linkCheck.ok) {
+        return res.status(400).json({ message: linkCheck.message });
+      }
+      safePortfolioLink = linkCheck.value;
+    }
+
     // Create new request
     const newRequest = new TeacherRequest({
       user: user._id, // ✅ use user found by email
@@ -45,7 +58,7 @@ export const createteachingrequest = async (req, res) => {
       bio,
       profilePicture,
       paymentMethod,
-      portfolioLink,
+      portfolioLink: safePortfolioLink,
     });
 
     await newRequest.save();

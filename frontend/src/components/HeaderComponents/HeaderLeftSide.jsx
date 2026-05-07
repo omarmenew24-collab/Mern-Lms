@@ -1,94 +1,90 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
-import { useDarkMode } from "../../store/darkmode";
+import { useEffect } from "react";
+import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import useUserStore from "../../store/userstore";
+import { paths } from "../../config/paths";
+import { usePublicSiteBranding } from "../../api/admin";
 
 const HeaderLeftSide = () => {
   const navigate = useNavigate();
-  const { darkMode } = useDarkMode();
+  const location = useLocation();
+  const { t } = useTranslation();
   const user = useUserStore((state) => state.user);
-  console.log("user:", user?.role);
+  const { branding } = usePublicSiteBranding();
+  const siteName = branding?.siteDisplayName?.trim() || "CourseAcademy";
+
+  useEffect(() => {
+    const base = branding?.siteDisplayName?.trim();
+    if (base) {
+      document.title = base;
+    }
+  }, [branding?.siteDisplayName]);
+
   const handleDashboard = () => {
     if (!user) return;
     if (user.role === "student") navigate("/student");
-    else if (user.role === "admin") navigate("/admindashboard");
+    else if (user.role === "admin") navigate(paths.admin);
     else if (user.role === "teacher") navigate("/teacher");
   };
 
-  const handleTeach = () => {
-    navigate("/teacherform");
-  };
+  const handleTeach = () => navigate(paths.teachingApply);
 
-  // we need here to handle the admin case to outline the dashboard
   const isOnMyPage =
     (user?.role === "student" && location.pathname.startsWith("/student")) ||
     (user?.role === "teacher" && location.pathname.startsWith("/teacher")) ||
     (user?.role === "admin" && location.pathname.startsWith("/admin"));
 
   return (
-    <div>
-      {/* Left side */}
-      <div className="flex items-center space-x-4 cursor-pointer">
-        <div
-          className="flex items-center space-x-2"
-          onClick={() => navigate("/")}
+    <div className="flex items-center gap-4 shrink-0">
+      <span
+        onClick={() => navigate("/")}
+        className="text-xl font-extrabold tracking-tight cursor-pointer text-brand-700 dark:text-brand-400 hover:opacity-80 transition-opacity max-w-[200px] sm:max-w-none truncate"
+        title={siteName}
+      >
+        {siteName}
+      </span>
+
+      {user?.role !== "teacher" && user && user?.role !== "admin" && (
+        <button
+          onClick={handleTeach}
+          className="hidden sm:inline-flex text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
         >
-          <span
-            className={`text-2xl font-bold hover:text-blue-700 transition-colors ${
-              darkMode ? "text-blue-400" : "text-blue-600"
-            }`}
-          >
-            Course Academy
-          </span>
-        </div>
+          {t("nav.teachWithUs")}
+        </button>
+      )}
 
-        {user?.role !== "teacher" && user && user?.role !== "admin" && (
-          <button
-            onClick={handleTeach}
-            className={`px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 shadow-md transition ${
-              darkMode
-                ? "bg-blue-600 text-white hover:bg-blue-500"
-                : "bg-blue-600 text-white hover:bg-blue-700"
-            }`}
-          >
-            Teach
-          </button>
-        )}
+      {(user?.role === "teacher" || user?.role === "admin") && (
+        <button
+          onClick={() => navigate(paths.teacherNewCourse)}
+          className="hidden sm:inline-flex text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+        >
+          {t("nav.createCourse")}
+        </button>
+      )}
 
-        {(user?.role === "teacher" || user?.role === "admin") && (
-          <button
-            className={`px-4 py-2 rounded-lg font-semibold shadow-md transition ${
-              darkMode
-                ? "bg-green-600 text-white hover:bg-green-500"
-                : "bg-green-600 text-white hover:bg-green-700"
-            }`}
-            onClick={() => {
-              navigate("/createcourse");
-            }}
-          >
-            Create Course
-          </button>
-        )}
+      {user && (
+        <button
+          onClick={handleDashboard}
+          className={`hidden sm:inline-flex text-sm font-medium transition-colors ${
+            isOnMyPage
+              ? "text-brand-600 dark:text-brand-400 font-semibold"
+              : "text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400"
+          }`}
+        >
+          {t("nav.myDashboard")}
+        </button>
+      )}
 
-        {user && (
-          <button
-            onClick={handleDashboard}
-            className={`px-4 py-2 rounded-lg font-semibold shadow-md transition ${
-              isOnMyPage
-                ? `ring-2 ${
-                    darkMode
-                      ? "bg-purple-700 text-white ring-purple-400"
-                      : "bg-purple-800 text-white ring-purple-400"
-                  }`
-                : darkMode
-                  ? "bg-purple-600 text-white hover:bg-purple-500"
-                  : "bg-purple-600 text-white hover:bg-purple-700"
-            }`}
-          >
-            Dashboard
-          </button>
-        )}
-      </div>
+      <Link
+        to={paths.about}
+        className={`hidden sm:inline-flex text-sm font-medium transition-colors ${
+          location.pathname === paths.about
+            ? "text-brand-600 dark:text-brand-400 font-semibold"
+            : "text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400"
+        }`}
+      >
+        {t("nav.about")}
+      </Link>
     </div>
   );
 };

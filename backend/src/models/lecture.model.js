@@ -11,11 +11,31 @@ const lectureSchema = new mongoose.Schema({
     required: true,
   },
   description: String,
+  contentType: {
+    type: String,
+    enum: ["video", "file", "link", "text"],
+    default: "video",
+  },
   videoUrl: {
     type: String,
-    required: true, // Cloudinary / YouTube / Vimeo URL
+    default: "",
   },
-  // ✅ level as a single object with number + title
+  vimeoVideoId: {
+    type: String,
+    default: "",
+  },
+  fileUrl: { type: String, default: "" },
+  fileName: { type: String, default: "" },
+  linkUrl: { type: String, default: "" },
+  linkLabel: { type: String, default: "" },
+  textContent: { type: String, default: "" },
+  attachments: [
+    {
+      url: { type: String, required: true },
+      fileName: { type: String, default: "" },
+      addedAt: { type: Date, default: Date.now },
+    },
+  ],
   level: {
     number: {
       type: Number,
@@ -24,13 +44,17 @@ const lectureSchema = new mongoose.Schema({
     },
     title: {
       type: String,
-      required: true, // e.g. "Beginner", "Intermediate", "Advanced"
+      required: true,
     },
   },
-  duration: Number, // optional (seconds)
+  duration: Number,
   order: {
     type: Number,
-    default: 0, // order of lecture inside that level
+    default: 0,
+  },
+  isFreePreview: {
+    type: Boolean,
+    default: false,
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

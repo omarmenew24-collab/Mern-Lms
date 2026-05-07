@@ -1,41 +1,46 @@
-import React from "react";
-import { useDarkMode } from "../../store/darkmode";
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import { Moon, Sun, LogOut, User, ChevronDown, LayoutTemplate, ShoppingCart, Bell } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { useUnreadNotificationCount } from "../../api/notifications";
+import useCartStore from "../../store/cartStore";
 import GoogleSignIn from "../GoogleSignIn";
-import useUserStore from "../../store/userstore"; // Fixed import consistency
+import LanguageSwitcher from "../LanguageSwitcher";
+import useUserStore from "../../store/userstore";
+import { useDarkMode } from "../../store/darkmode";
 import { useLogout } from "../../api/auth";
-import toast from "react-hot-toast";
+import { paths } from "../../config/paths";
 
 const HeaderRightSide = () => {
+  const { t } = useTranslation();
   const { darkMode, onToggleDarkMode } = useDarkMode();
   const dropdownRef = useRef(null);
   const [open, setOpen] = useState(false);
-
-  // ✅ Using consistent store hook
   const user = useUserStore((state) => state.user);
-  const setUser = useUserStore((state) => state.setUser); // 🔹 get setUser
-
   const hasHydrated = useUserStore((state) => state.hasHydrated);
-
-  console.log("user:", user);
-
-  // ✅ Getting the logout mutation from your tanstack hook
+  const cartCount = useCartStore((s) => s.itemCount());
+  const { data: notifUnread = 0 } = useUnreadNotificationCount();
   const { logout, isPending } = useLogout();
-
   const navigate = useNavigate();
 
   const handleClickProfile = () => {
-    navigate("/updateprofile");
+    navigate(paths.profile);
     setOpen(false);
   };
 
-  // ✅ Updated Logout handler
+  const handleClickAdminWorkspace = () => {
+    navigate(paths.adminSettings);
+    setOpen(false);
+  };
+
+  const handleClickNotifications = () => {
+    navigate(paths.notifications);
+    setOpen(false);
+  };
+
   const handleLogout = async () => {
     try {
-      localStorage.removeItem("token"); // remove JWT
-      setUser(null); // clear user from global store
-      toast.success("Logged out successfully!");
+      await logout();
       setOpen(false);
       navigate("/");
     } catch (error) {
@@ -43,7 +48,6 @@ const HeaderRightSide = () => {
     }
   };
 
-  // Handles clicks outside the dropdown to close it
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -55,104 +59,140 @@ const HeaderRightSide = () => {
   }, []);
 
   return (
-    <div>
-      <div className="relative flex items-center space-x-3" ref={dropdownRef}>
-        {/* Dark Mode Toggle */}
-        <button
-          onClick={onToggleDarkMode}
-          className={`p-2 rounded-full transition duration-200 ${
-            darkMode
-              ? "bg-yellow-400 text-gray-900 hover:bg-yellow-300"
-              : "bg-gray-800 text-white hover:bg-gray-700"
-          }`}
-          title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-        >
-          {darkMode ? "☀️" : "🌙"}
-        </button>
+    <div className="flex items-center gap-2 shrink-0">
+      <LanguageSwitcher />
 
-        {user && hasHydrated ? (
-          <>
-            <img
-              src={`https://mern-lms-backend-ph6i.onrender.com/api/user/${user._id}/picture`}
-              alt={user.name}
-              className="w-10 h-10 rounded-full cursor-pointer border-2 border-blue-500 hover:scale-105 transition-transform"
-              onClick={() => setOpen(!open)}
-            />
-            {open && (
-              <div
-                className={`absolute right-0 mt-3 w-48 border rounded-xl shadow-xl py-2 overflow-hidden animate-fade-in z-50 ${
-                  darkMode
-                    ? "bg-gray-800 border-gray-700"
-                    : "bg-white border-gray-200"
-                }`}
-              >
-                <div
-                  className={`px-4 py-2 border-b ${
-                    darkMode ? "border-gray-700" : "border-gray-100"
-                  }`}
-                >
-                  <p
-                    className={`font-semibold truncate ${darkMode ? "text-white" : "text-gray-800"}`}
-                  >
-                    {user.name}
-                  </p>
-                  <p
-                    className={`text-sm truncate ${darkMode ? "text-gray-400" : "text-gray-500"}`}
-                  >
-                    {user.email}
-                  </p>
-                  <p
-                    className={`text-xs mt-1 uppercase tracking-wider font-bold ${darkMode ? "text-blue-400" : "text-blue-600"}`}
-                  >
-                    {user.role}
-                  </p>
-                </div>
+      <button
+        onClick={onToggleDarkMode}
+        className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        title={darkMode ? t("nav.lightMode") : t("nav.darkMode")}
+      >
+        {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+      </button>
 
-                <button
-                  onClick={handleClickProfile}
-                  className={`w-full text-left px-4 py-2 transition ${
-                    darkMode
-                      ? "text-gray-300 hover:bg-gray-700 hover:text-blue-400"
-                      : "text-gray-700 hover:bg-blue-50 hover:text-blue-600"
-                  }`}
-                >
-                  Update Profile
-                </button>
-
-                <button
-                  onClick={handleLogout}
-                  disabled={isPending}
-                  className={`w-full text-left px-4 py-2 transition ${
-                    isPending ? "opacity-50 cursor-not-allowed" : ""
-                  } ${
-                    darkMode
-                      ? "text-gray-300 hover:bg-gray-700 hover:text-red-400"
-                      : "text-gray-700 hover:bg-red-50 hover:text-red-600"
-                  }`}
-                >
-                  {isPending ? "Logging out..." : "Logout"}
-                </button>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="flex items-center space-x-3 h-10">
-            <GoogleSignIn />
-            <button
-              onClick={() => navigate("/signup")}
-              className="px-4 py-2 rounded-lg font-semibold bg-green-600 text-white hover:bg-green-700 shadow-md transition"
-            >
-              Sign Up
-            </button>
-            <button
-              onClick={() => navigate("/login")}
-              className="px-4 py-2 rounded-lg font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-md transition"
-            >
-              Login
-            </button>
-          </div>
+      <Link
+        to={paths.cart}
+        className="relative p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        title={t("nav.cart")}
+        aria-label={cartCount ? `${t("nav.cart")}, ${cartCount} items` : t("nav.cart")}
+      >
+        <ShoppingCart className="w-5 h-5" />
+        {cartCount > 0 && (
+          <span className="absolute -top-0.5 -end-0.5 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-brand-600 text-[10px] font-bold text-white">
+            {cartCount > 9 ? "9+" : cartCount}
+          </span>
         )}
-      </div>
+      </Link>
+
+      {user && hasHydrated && (
+        <Link
+          to={paths.notifications}
+          className="relative p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          title={t("nav.notifications")}
+          aria-label={
+            notifUnread
+              ? `${t("nav.notifications")}, ${notifUnread} unread`
+              : t("nav.notifications")
+          }
+        >
+          <Bell className="w-5 h-5" />
+          {notifUnread > 0 && (
+            <span className="absolute -top-0.5 -end-0.5 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-gray-900 dark:bg-amber-500 text-[10px] font-bold text-white">
+              {notifUnread > 9 ? "9+" : notifUnread}
+            </span>
+          )}
+        </Link>
+      )}
+
+      {user && hasHydrated ? (
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setOpen(!open)}
+            className="flex items-center gap-2 ps-1 pe-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <img
+              src={user.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=7c3aed&color=fff`}
+              alt={user.name}
+              className="w-8 h-8 rounded-full object-cover"
+            />
+            <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+          </button>
+
+          {open && (
+            <div className="absolute end-0 top-full mt-2 w-56 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-xl py-1 animate-in fade-in slide-in-from-top-1 z-50">
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">
+                  {user.name}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  {user.email}
+                </p>
+                <span className="mt-1 inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300">
+                  {user.role}
+                </span>
+              </div>
+
+              <button
+                onClick={handleClickProfile}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+              >
+                <User className="w-4 h-4" />
+                {t("nav.editProfile")}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleClickNotifications}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+              >
+                <Bell className="w-4 h-4" />
+                {t("nav.notifications")}
+                {notifUnread > 0 && (
+                  <span className="ms-auto text-[10px] font-bold bg-brand-600 text-white min-w-5 h-5 rounded-full flex items-center justify-center">
+                    {notifUnread > 9 ? "9+" : notifUnread}
+                  </span>
+                )}
+              </button>
+
+              {user.role === "admin" && (
+                <button
+                  type="button"
+                  onClick={handleClickAdminWorkspace}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                >
+                  <LayoutTemplate className="w-4 h-4 text-violet-500" />
+                  {t("nav.adminWorkspace")}
+                </button>
+              )}
+
+              <button
+                onClick={handleLogout}
+                disabled={isPending}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-50"
+              >
+                <LogOut className="w-4 h-4" />
+                {isPending ? t("nav.loggingOut") : t("nav.logout")}
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <GoogleSignIn />
+          <button
+            onClick={() => navigate("/login")}
+            className="text-sm font-semibold text-gray-700 dark:text-gray-200 hover:text-brand-600 dark:hover:text-brand-400 transition-colors px-3 py-2"
+          >
+            {t("nav.login")}
+          </button>
+          <button
+            onClick={() => navigate(paths.signUp)}
+            className="text-sm font-semibold px-4 py-2 rounded-lg bg-brand-600 text-white hover:bg-brand-700 transition-colors"
+          >
+            {t("nav.signUp")}
+          </button>
+        </div>
+      )}
     </div>
   );
 };

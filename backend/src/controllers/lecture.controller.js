@@ -1,15 +1,14 @@
 import Course from "../models/course.model.js";
-import User from "../models/user.model.js";
 import Enrollment from "../models/enrollment.model.js";
-import Task from "../models/task.model.js";
-import Submission from "../models/submission.model.js";
 import Lecture from "../models/lecture.model.js";
 import CourseCompletion from "../models/courseCompletion.model.js";
 import { updateUnifiedProgress } from "../lib/utils.js";
+import { parseHttpUrl } from "../lib/safeHttpUrl.js";
+import { getVimeoVideoMeta } from "../lib/vimeoService.js";
+import { notifySafe, onLecturePublished } from "../services/notification.service.js";
 
-// Authorization helper
 const requireCourseTeacherOrAdmin = async (req, courseId, res) => {
-  const course = await Course.findById(courseId).select("teacher");
+  const course = await Course.findById(courseId).select("teacher lectures");
 
   if (!course) {
     res.status(404).json({ message: "Course not found" });
@@ -49,56 +48,237 @@ export const createLecture = async (req, res) => {
         .json({ message: "Only teachers can create lectures" });
     }
 
-    const course = await requireCourseTeacherOrAdmin(
-      req,
-      courseId,
-      res
-    );
+    const course = await requireCourseTeacherOrAdmin(req, courseId, res);
     if (!course) return;
 
-    const { title, description, videoUrl, level, duration, order } =
-      req.body;
+    const { title, description, videoUrl, vimeoVideoId, duration, order, isFreePreview,
+      contentType: rawContentType, fileUrl, fileName, linkUrl, linkLabel, textContent,
+      attachments: rawAttachments } = req.body;
+    const freePreviewFlag = Boolean(isFreePreview);
+    const contentType = ["video", "file", "link", "text"].includes(rawContentType) ? rawContentType : "video";
 
-    if (!title || !videoUrl || !level?.number || !level?.title) {
+    const level = typeof req.body.level === "string"
+      ? JSON.parse(req.body.level)
+      : req.body.level;
+
+    if (!title || !level?.number || !level?.title) {
       return res
         .status(400)
-        .json({ message: "Missing required lecture fields" });
+        .json({ message: "Missing required lecture fields (title, level)" });
+    }
+
+    let finalVideoUrl = "";
+    let vimeoIdStored = "";
+    let finalDuration = duration !== undefined && duration !== null && duration !== "" ? Number(duration) : null;
+    if (Number.isNaN(finalDuration)) finalDuration = null;
+
+    if (contentType === "video") {
+      finalVideoUrl = (videoUrl || "").trim();
+
+      if (vimeoVideoId != null && String(vimeoVideoId).trim() !== "") {
+        const raw = String(vimeoVideoId).trim();
+        const digits = raw.replace(/\D/g, "");
+        if (!/^\d{3,20}$/.test(digits)) {
+          return res.status(400).json({ message: "Invalid vimeoVideoId" });
+        }
+        vimeoIdStored = digits;
+        finalVideoUrl = `https://vimeo.com/${digits}`;
+      }
+
+      if (!finalVideoUrl) {
+        return res.status(400).json({ message: "Video lectures require a video URL" });
+      }
+
+      if (!vimeoIdStored) {
+        try {
+          const u = new URL(
+            String(finalVideoUrl).startsWith("http") ? String(finalVideoUrl) : `https://${finalVideoUrl}`,
+          );
+          if (u.hostname.includes("vimeo.com")) {
+            const parts = u.pathname.split("/").filter(Boolean);
+            const n = parts.find((p) => /^\d+$/.test(p));
+            if (n) vimeoIdStored = n;
+          }
+        } catch {
+          /* not a vimeo url */
+        }
+      }
+
+      const videoUrlCheck = parseHttpUrl(finalVideoUrl);
+      if (!videoUrlCheck.ok) {
+        return res.status(400).json({ message: videoUrlCheck.message });
+      }
+      finalVideoUrl = videoUrlCheck.value;
+
+      if (vimeoIdStored && (finalDuration == null || finalDuration === 0)) {
+        const meta = await getVimeoVideoMeta(vimeoIdStored);
+        if (meta?.duration != null && !Number.isNaN(meta.duration)) {
+          finalDuration = meta.duration;
+        }
+      }
+    }
+
+    if (contentType === "link" && !linkUrl) {
+      return res.status(400).json({ message: "Link lectures require a URL" });
+    }
+
+    let validAttachments;
+    if (Array.isArray(rawAttachments)) {
+      validAttachments = rawAttachments
+        .filter((a) => a && typeof a.url === "string" && a.url.trim())
+        .slice(0, 5)
+        .map((a) => ({ url: a.url.trim(), fileName: (a.fileName || "").trim() }));
     }
 
     const lecture = await Lecture.create({
       course: course._id,
       title,
       description,
-      videoUrl,
+      contentType,
+      videoUrl: finalVideoUrl || undefined,
+      vimeoVideoId: vimeoIdStored || undefined,
+      fileUrl: contentType === "file" ? (fileUrl || "") : undefined,
+      fileName: contentType === "file" ? (fileName || "") : undefined,
+      linkUrl: contentType === "link" ? (linkUrl || "") : undefined,
+      linkLabel: contentType === "link" ? (linkLabel || "") : undefined,
+      textContent: contentType === "text" ? (textContent || "") : undefined,
+      attachments: validAttachments?.length ? validAttachments : undefined,
       level,
-      duration,
-      order,
+      duration: finalDuration,
+      order: order ? Number(order) : 0,
+      isFreePreview: freePreviewFlag,
       createdBy: req.user._id,
     });
 
     course.lectures.push(lecture._id);
     await course.save();
 
-    // 🔥 FIX: Update progress for ALL students
     const enrollments = await Enrollment.find({
       course: courseId,
       ...activeOrLegacyEnrollmentFilter,
     }).select("student");
 
     await Promise.all(
-      enrollments.map((e) =>
-        updateUnifiedProgress(e.student, courseId)
-      )
+      enrollments.map((e) => updateUnifiedProgress(e.student, courseId)),
     );
 
-    res
-      .status(201)
-      .json({ message: "Lecture added successfully", lecture });
+    const courseForNotify = await Course.findById(courseId).select("title");
+    notifySafe(() =>
+      onLecturePublished({
+        course: { _id: course._id, title: courseForNotify?.title || "" },
+        lectureDoc: lecture,
+      }),
+    );
+
+    res.status(201).json({ message: "Lecture added successfully", lecture });
   } catch (error) {
     console.error(error);
-    res
-      .status(500)
-      .json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// ======================
+// UPDATE LECTURE
+// ======================
+export const updateLecture = async (req, res) => {
+  try {
+    const { courseId, lectureId } = req.params;
+
+    if (!req.user)
+      return res.status(401).json({ message: "Unauthorized" });
+
+    const course = await requireCourseTeacherOrAdmin(req, courseId, res);
+    if (!course) return;
+
+    const lecture = await Lecture.findOne({ _id: lectureId, course: courseId });
+    if (!lecture) {
+      return res.status(404).json({ message: "Lecture not found in this course" });
+    }
+
+    const { title, description, videoUrl, vimeoVideoId, duration, order, isFreePreview,
+      contentType, fileUrl, fileName, linkUrl, linkLabel, textContent,
+      attachments: rawAttachments } = req.body;
+
+    const level = req.body.level
+      ? typeof req.body.level === "string"
+        ? JSON.parse(req.body.level)
+        : req.body.level
+      : undefined;
+
+    if (title !== undefined) lecture.title = title;
+    if (description !== undefined) lecture.description = description;
+
+    if (rawAttachments !== undefined) {
+      if (Array.isArray(rawAttachments)) {
+        lecture.attachments = rawAttachments
+          .filter((a) => a && typeof a.url === "string" && a.url.trim())
+          .slice(0, 5)
+          .map((a) => ({ url: a.url.trim(), fileName: (a.fileName || "").trim() }));
+      } else {
+        lecture.attachments = [];
+      }
+    }
+    if (level) lecture.level = level;
+    if (order !== undefined) lecture.order = Number(order);
+    if (contentType && ["video", "file", "link", "text"].includes(contentType)) {
+      lecture.contentType = contentType;
+    }
+    if (fileUrl !== undefined) lecture.fileUrl = fileUrl;
+    if (fileName !== undefined) lecture.fileName = fileName;
+    if (linkUrl !== undefined) lecture.linkUrl = linkUrl;
+    if (linkLabel !== undefined) lecture.linkLabel = linkLabel;
+    if (textContent !== undefined) lecture.textContent = textContent;
+
+    if (isFreePreview !== undefined) {
+      lecture.isFreePreview = Boolean(isFreePreview);
+    }
+
+    if (duration !== undefined && duration !== "") {
+      lecture.duration = Number(duration);
+    }
+
+    if (vimeoVideoId !== undefined) {
+      const t = vimeoVideoId == null ? "" : String(vimeoVideoId).trim();
+      if (t === "") {
+        lecture.vimeoVideoId = "";
+      } else {
+        const raw = t.replace(/\D/g, "");
+        if (!/^\d{3,20}$/.test(raw)) {
+          return res.status(400).json({ message: "Invalid vimeoVideoId" });
+        }
+        lecture.vimeoVideoId = raw;
+        lecture.videoUrl = `https://vimeo.com/${raw}`;
+      }
+    } else if (videoUrl) {
+      const videoUrlCheck = parseHttpUrl(videoUrl);
+      if (!videoUrlCheck.ok) {
+        return res.status(400).json({ message: videoUrlCheck.message });
+      }
+      lecture.videoUrl = videoUrlCheck.value;
+      let vid = "";
+      try {
+        const u = new URL(lecture.videoUrl);
+        if (u.hostname.includes("vimeo.com")) {
+          const parts = u.pathname.split("/").filter(Boolean);
+          const n = parts.find((p) => /^\d+$/.test(p));
+          if (n) vid = n;
+        }
+      } catch {
+        /* ignore */
+      }
+      lecture.vimeoVideoId = vid || "";
+      if (duration !== undefined && duration !== null && duration !== "") {
+        const d = Number(duration);
+        if (!Number.isNaN(d)) lecture.duration = d;
+      }
+    }
+
+    await lecture.save();
+
+    res.status(200).json({ message: "Lecture updated successfully", lecture });
+  } catch (error) {
+    console.error("Error updating lecture:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
@@ -119,7 +299,6 @@ export const getLecturesByCourse = async (req, res) => {
     }
 
     const isAdmin = req.user.role === "admin";
-
     const isOwnerTeacher =
       course.teacher.toString() === req.user._id.toString();
 
@@ -142,9 +321,7 @@ export const getLecturesByCourse = async (req, res) => {
     res.status(200).json({ lectures: populatedCourse.lectures });
   } catch (error) {
     console.error("Error fetching lectures:", error);
-    res
-      .status(500)
-      .json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
@@ -187,13 +364,10 @@ export const markLectureAsComplete = async (req, res) => {
     await CourseCompletion.findOneAndUpdate(
       { student: studentId, course: courseId },
       { $addToSet: { completedLectures: lectureId } },
-      { upsert: true }
+      { upsert: true },
     );
 
-    const updatedRecord = await updateUnifiedProgress(
-      studentId,
-      courseId
-    );
+    const updatedRecord = await updateUnifiedProgress(studentId, courseId);
 
     res.status(200).json({
       message: "Lecture marked as complete",
@@ -232,41 +406,26 @@ export const deleteLecture = async (req, res) => {
         .json({ message: "Lecture does not belong to this course" });
     }
 
-    const course = await requireCourseTeacherOrAdmin(
-      req,
-      courseId,
-      res
-    );
+    const course = await requireCourseTeacherOrAdmin(req, courseId, res);
     if (!course) return;
 
     await Lecture.findByIdAndDelete(lectureId);
 
-    const courseUpdate = await Course.updateOne(
+    await Course.updateOne(
       { _id: courseId },
-      { $pull: { lectures: lectureId } }
+      { $pull: { lectures: lectureId } },
     );
 
-    if (courseUpdate.modifiedCount === 0) {
-      return res
-        .status(400)
-        .json({ message: "Lecture does not belong to this course" });
-    }
-
-    // 🔥 FIX: Update progress for ALL students after deletion
     const enrollments = await Enrollment.find({
       course: courseId,
       ...activeOrLegacyEnrollmentFilter,
     }).select("student");
 
     await Promise.all(
-      enrollments.map((e) =>
-        updateUnifiedProgress(e.student, courseId)
-      )
+      enrollments.map((e) => updateUnifiedProgress(e.student, courseId)),
     );
 
-    res
-      .status(200)
-      .json({ message: "Lecture deleted successfully" });
+    res.status(200).json({ message: "Lecture deleted successfully" });
   } catch (error) {
     console.error("Error deleting lecture:", error);
     res.status(500).json({ message: "Server error" });

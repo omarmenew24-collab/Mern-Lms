@@ -4,6 +4,11 @@ import Task from "../models/task.model.js";
 import Submission from "../models/submission.model.js";
 import CourseCompletion from "../models/courseCompletion.model.js";
 import { updateUnifiedProgress } from "../lib/utils.js";
+import {
+  notifySafe,
+  onTaskCreatedForCourse,
+  onAssignmentGraded,
+} from "../services/notification.service.js";
 
 // Authorization helper
 const requireCourseTeacherOrAdmin = async (req, courseId, res) => {
@@ -52,7 +57,7 @@ const requireStudentEnrolled = async (req, courseId, res) => {
 export const createtask = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const { title, description, type, dueDate, examDetails } = req.body;
+    const { title, description, type, dueDate, examDetails, resourceUrl, resourceFileName, referenceLink } = req.body;
 
     const course = await Course.findById(courseId);
     if (!course) return res.status(404).json({ message: "Course not found" });
@@ -69,6 +74,12 @@ export const createtask = async (req, res) => {
       type,
       dueDate: type === "assignment" ? dueDate : undefined,
       examDetails: type === "exam" ? examDetails : undefined,
+      resourceUrl: type === "resource" ? (resourceUrl || "") : undefined,
+      resourceFileName: type === "resource" ? (resourceFileName || "") : undefined,
+      referenceLink:
+        referenceLink?.url?.trim()
+          ? { url: referenceLink.url.trim(), label: (referenceLink.label || "").trim() }
+          : undefined,
       createdBy: req.user._id,
     });
 
@@ -191,7 +202,7 @@ export const deletetask = async (req, res) => {
 export const updatetask = async (req, res) => {
   try {
     const { courseId, taskId } = req.params;
-    const { title, description, type, dueDate, examDetails } = req.body;
+    const { title, description, type, dueDate, examDetails, resourceUrl, resourceFileName, referenceLink } = req.body;
 
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
 
@@ -206,10 +217,17 @@ export const updatetask = async (req, res) => {
     }
 
     if (title) task.title = title;
-    if (description) task.description = description;
+    if (description !== undefined) task.description = description;
     if (type) task.type = type;
-    if (dueDate) task.dueDate = dueDate;
+    if (dueDate !== undefined) task.dueDate = dueDate || null;
     if (examDetails) task.examDetails = examDetails;
+    if (resourceUrl !== undefined) task.resourceUrl = resourceUrl || "";
+    if (resourceFileName !== undefined) task.resourceFileName = resourceFileName || "";
+    if (referenceLink !== undefined) {
+      task.referenceLink = referenceLink?.url?.trim()
+        ? { url: referenceLink.url.trim(), label: (referenceLink.label || "").trim() }
+        : { url: "", label: "" };
+    }
 
     await task.save();
 
@@ -274,6 +292,17 @@ export const gradesubmission = async (req, res) => {
 
     submission.grade = grade;
     await submission.save();
+
+    const taskDoc = await Task.findById(taskId).select("title");
+    notifySafe(() =>
+      onAssignmentGraded({
+        courseId: course._id,
+        taskTitle: taskDoc?.title || "Assignment",
+        studentId,
+        grade: String(grade),
+        teacherName: req.user?.name || "",
+      }),
+    );
 
     res.status(200).json({
       message: "Task graded successfully",
