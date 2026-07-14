@@ -1,20 +1,17 @@
 import React, { useState, useMemo } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
-import { UseGetAllUsers, useDeleteUser, useChangeUserRole } from "../../api/admin";
+import { UseGetAllUsers, useDeleteUser } from "../../api/admin";
 import { paths } from "../../config/paths";
-import { confirmAction, pickRoleToast } from "../../lib/confirmToast.jsx";
-import { Search, Shield, Trash2, Eye } from "lucide-react";
+import { confirmAction } from "../../lib/confirmToast.jsx";
+import { Search, Trash2, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ExportCsvButton from "../../components/admin/ExportCsvButton";
-
-const VALID_ROLES = ["student", "teacher", "admin"];
 
 const UsersPage = () => {
   const { t, i18n } = useTranslation();
   const { allusers, isLoading, isError } = UseGetAllUsers();
   const { deleteMyUser, isPending: isDeleting } = useDeleteUser();
-  const { changeUserRoleMutate, isPending: isChangingRole } = useChangeUserRole();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const navigate = useNavigate();
@@ -34,21 +31,6 @@ const UsersPage = () => {
     if (!ok) return;
     try {
       await deleteMyUser(id);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleChangeRole = async (user) => {
-    const newRole = await pickRoleToast(user.role);
-    if (newRole == null) return;
-    if (!VALID_ROLES.includes(newRole)) {
-      toast.error(t("admin.users.invalidRole"));
-      return;
-    }
-    if (newRole === user.role) return;
-    try {
-      await changeUserRoleMutate({ id: user._id, role: newRole });
     } catch (e) {
       console.error(e);
     }
@@ -121,9 +103,8 @@ const UsersPage = () => {
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{user.lastLogin ? new Date(user.lastLogin).toLocaleDateString(i18n.language) : t("admin.users.never")}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => navigate(paths.adminUser(user._id))} className="p-2 rounded-lg text-gray-500 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-900/20 dark:hover:text-brand-400 transition-colors" title={t("commonActions.view")}><Eye className="w-4 h-4" /></button>
-                      <button onClick={() => handleChangeRole(user)} disabled={isChangingRole} className="p-2 rounded-lg text-gray-500 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-900/20 dark:hover:text-brand-400 transition-colors disabled:opacity-50" title={t("commonActions.changeRole")}><Shield className="w-4 h-4" /></button>
-                      <button onClick={() => handleDelete(user._id)} disabled={isDeleting} className="p-2 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20 dark:hover:text-red-400 transition-colors disabled:opacity-50" title={t("home.courses.delete")}><Trash2 className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => navigate(paths.adminUser(user._id))} className="p-2 rounded-lg text-gray-500 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-900/20 dark:hover:text-brand-400 transition-colors" title={t("commonActions.view")} aria-label={t("commonActions.view")}><Eye className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => handleDelete(user._id)} disabled={isDeleting} className="p-2 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20 dark:hover:text-red-400 transition-colors disabled:opacity-50" title={t("home.courses.delete")} aria-label={t("home.courses.delete")}><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </td>
                 </tr>

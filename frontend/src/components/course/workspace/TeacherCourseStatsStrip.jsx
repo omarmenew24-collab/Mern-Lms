@@ -1,4 +1,5 @@
 import { Users, Gauge, PlayCircle, Star } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 function formatTotalHours(totalSeconds = 0) {
   const hours = Number(totalSeconds || 0) / 3600;
@@ -49,6 +50,7 @@ export default function TeacherCourseStatsStrip({
   ratingAvg = 0,
   ratingCount = 0,
 }) {
+  const { t } = useTranslation();
   const safeCompletion = Number.isFinite(Number(overallCompletionPercent))
     ? Math.max(0, Math.min(100, Math.round(Number(overallCompletionPercent))))
     : 0;
@@ -57,35 +59,35 @@ export default function TeacherCourseStatsStrip({
 
   return (
     <section
-      aria-label="Course performance overview"
+      aria-label={t("workspace.stats.overviewAria")}
       className="grid grid-cols-2 xl:grid-cols-4 gap-3"
     >
       <StatCard
         icon={Users}
-        label="Students"
+        label={t("workspace.stats.students")}
         value={studentsCount}
-        hint={studentsCount === 1 ? "1 learner enrolled" : `${studentsCount} learners enrolled`}
+        hint={t("workspace.stats.learnersEnrolled", { count: studentsCount })}
         tone="brand"
       />
       <StatCard
         icon={Gauge}
-        label="Avg. completion"
+        label={t("workspace.stats.avgCompletion")}
         value={`${safeCompletion}%`}
-        hint="Average student progress"
+        hint={t("workspace.stats.avgProgress")}
         tone="emerald"
       />
       <StatCard
         icon={PlayCircle}
-        label="Lectures"
+        label={t("workspace.stats.lectures")}
         value={lecturesCount}
-        hint={`${formatTotalHours(totalLectureSeconds)} of content`}
+        hint={t("workspace.stats.contentLength", { duration: formatTotalHours(totalLectureSeconds) })}
         tone="brand"
       />
       <StatCard
         icon={Star}
-        label="Rating"
+        label={t("workspace.stats.rating")}
         value={ratingCount > 0 ? safeRating.toFixed(1) : "—"}
-        hint={ratingCount > 0 ? `${ratingCount} review${ratingCount !== 1 ? "s" : ""}` : "No reviews yet"}
+        hint={ratingCount > 0 ? t("workspace.stats.reviews", { count: ratingCount }) : t("workspace.stats.noReviews")}
         tone="amber"
       />
     </section>

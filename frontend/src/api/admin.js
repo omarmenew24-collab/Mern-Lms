@@ -11,6 +11,7 @@ export const UseGetDashboardStats = () => {
     const {data: dashboardstats , isLoading, isError} = useQuery({
       queryKey: ["dashboardstats"],
       queryFn: getdashboardstats,
+      refetchInterval: 60_000,
     });
 
     return {dashboardstats , isLoading, isError}
@@ -93,31 +94,7 @@ export const useDeleteUser = () => {
   return { deleteMyUser, isPending };
 };
 
-export const useChangeUserRole = () => {
-  const queryClient = useQueryClient();
 
-  const changeRole = async ({ id, role }) => {
-    const res = await axiosInstance.patch(`/users/${id}/role`, { role });
-    return res.data;
-  };
-
-  const { mutateAsync: changeUserRoleMutate, isPending } = useMutation({
-    mutationFn: changeRole,
-
-    onSuccess: () => {
-      toast.success("Role updated successfully!");
-
-      // 🔥 Refetch users
-      queryClient.invalidateQueries({ queryKey: ["allusers"] });
-    },
-
-    onError: () => {
-      toast.error("Failed to update role");
-    },
-  });
-
-  return { changeUserRoleMutate, isPending };
-};
 
 export const useGetSiteSettings = () => {
   const fetchSettings = async () => {
@@ -180,6 +157,19 @@ export const usePublicSiteBranding = () => {
     isLoading,
     isError,
   };
+};
+
+/** Public — home page trust / stats strip (no auth). */
+export const usePublicPlatformStats = () => {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["public-platform-stats"],
+    queryFn: async () => {
+      const res = await axiosInstance.get("/public/platform-stats");
+      return res.data;
+    },
+    staleTime: 5 * 60_000,
+  });
+  return { stats: data, isLoading, isError };
 };
 
 /** No auth — home page banner copy. */

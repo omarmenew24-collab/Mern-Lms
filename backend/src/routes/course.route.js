@@ -8,17 +8,24 @@ import {
   getStudentSubmissionsByCourse,
   getCourseProgress,
   getBulkCourseProgress,
+  getCourseRosterLearnerSnapshots,
+  getCourseCurriculumAnalytics,
+  getCourseInstructorActivity,
+  getCourseTaskAnalytics,
+  getLearnerEnrollmentSnapshotSingle,
+  recordCourseWorkspaceVisit,
   toggleCertificatePermission,
   deletecourse,
   getcoursesbyteacher,
+  getTeacherDashboard,
+  getStudentDashboard,
   getcourses,
   getAllCoursesForAdmin,
   getCourseById,
   updateCourseDetails,
   setCoursePublished,
   softDeleteCourse,
-  submitCourseForReview,
-  reviewCourse,
+  publishCourseAsInstructor,
 } from "../controllers/course.controller.js";
 import {
   getPublicCourse,
@@ -26,6 +33,7 @@ import {
   getMyRating,
   upsertRating,
 } from "../controllers/rating.controller.js";
+import { downloadCourseCertificatePdf } from "../controllers/certificate.controller.js";
 import {
   listCourseComments,
   createCourseComment,
@@ -49,8 +57,10 @@ router.delete("/deletecourse/:courseId", protectRoute, deletecourse)
 // this needs a protection
 router.post("/togglecertificate/:courseId/:studentId",protectRoute,toggleCertificatePermission)
 
+router.get("/courses/:courseId/certificate/pdf", protectRoute, downloadCourseCertificatePdf);
 
-router.get("/courses/enrolled",protectRoute, getstudentcourses);
+router.get("/courses/enrolled", protectRoute, getstudentcourses);
+router.get("/courses/student/dashboard", protectRoute, getStudentDashboard);
 
 
 router.get("/teacher/:teacherId/enrollments", protectRoute, getTeacherEnrollments);
@@ -68,6 +78,7 @@ router.get("/progress/:courseId", protectRoute, getCourseProgress);
 router.get("/progress/bulk/:courseId",protectRoute, getBulkCourseProgress)
 
 router.get("/courses/teacher", protectRoute, getcoursesbyteacher);
+router.get("/courses/teacher/dashboard", protectRoute, getTeacherDashboard);
 
 router.get("/course-categories", protectRoute, listCourseCategories);
 router.post("/course-categories", protectRoute, createCourseCategory);
@@ -90,12 +101,42 @@ router.delete(
   deleteCourseComment,
 );
 
+router.get(
+  "/courses/:courseId/roster-learners",
+  protectRoute,
+  getCourseRosterLearnerSnapshots,
+);
+router.get(
+  "/courses/:courseId/curriculum-analytics",
+  protectRoute,
+  getCourseCurriculumAnalytics,
+);
+router.get(
+  "/courses/:courseId/instructor-activity",
+  protectRoute,
+  getCourseInstructorActivity,
+);
+router.get(
+  "/courses/:courseId/task-analytics",
+  protectRoute,
+  getCourseTaskAnalytics,
+);
+router.get(
+  "/courses/:courseId/learners/:studentId/snapshot",
+  protectRoute,
+  getLearnerEnrollmentSnapshotSingle,
+);
+router.post(
+  "/courses/:courseId/workspace-visits",
+  protectRoute,
+  recordCourseWorkspaceVisit,
+);
+
 router.get("/courses/:courseId", protectRoute, getCourseById);
 router.patch("/courses/:courseId", protectRoute, upload.single("image"), updateCourseDetails);
 
 router.patch("/courses/:courseId/publish", protectRoute, adminOnly, setCoursePublished);
-router.post("/courses/:courseId/submit-review", protectRoute, submitCourseForReview);
-router.patch("/courses/:courseId/review", protectRoute, adminOnly, reviewCourse);
+router.post("/courses/:courseId/publish", protectRoute, publishCourseAsInstructor);
 
 router.patch("/courses/:courseId/soft-delete", protectRoute, adminOnly, softDeleteCourse);
 

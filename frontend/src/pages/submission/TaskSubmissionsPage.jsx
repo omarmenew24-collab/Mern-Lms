@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useGradeSubmission, useGetSubmissionsByTask } from "../../api/task";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft, Download, ExternalLink } from "lucide-react";
 import toast from "react-hot-toast";
+import { downloadSubmissionBlob, getSubmissionDownloadFilename } from "../../lib/submissionDownload";
 
 export const TaskSubmissionsPage = () => {
   const { t, i18n } = useTranslation();
@@ -41,6 +42,28 @@ export const TaskSubmissionsPage = () => {
     } catch {
       toast.error(t("submissions.gradeError"));
     }
+  };
+
+  const handleDownloadSubmission = async (submission) => {
+    if (!submission?.fileUrl) {
+      toast.error(t("submissions.noFile", { defaultValue: "No file for this submission." }));
+      return;
+    }
+    const filename = getSubmissionDownloadFilename(submission);
+    try {
+      await downloadSubmissionBlob(submission.fileUrl, filename);
+    } catch {
+      toast.error(t("submissions.downloadOpenTab", { defaultValue: "Could not download with filename. Opening in a new tab." }));
+      window.open(submission.fileUrl, "_blank", "noopener,noreferrer");
+    }
+  };
+
+  const handleOpenSubmissionInNewTab = (submission) => {
+    if (!submission?.fileUrl) {
+      toast.error(t("submissions.noFile", { defaultValue: "No file for this submission." }));
+      return;
+    }
+    window.open(submission.fileUrl, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -88,9 +111,23 @@ export const TaskSubmissionsPage = () => {
                     </td>
                     <td className="px-4 py-3 font-semibold text-gray-900 dark:text-white">{submission.grade ?? "—"}</td>
                     <td className="px-4 py-3">
-                      <a href={submission.fileUrl} download className="inline-flex items-center gap-1 text-brand-600 dark:text-brand-400 hover:underline text-xs font-medium">
-                        <Download className="w-3.5 h-3.5" /> {t("submissions.download")}
-                      </a>
+                      <div className="flex flex-col gap-1.5 items-start">
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadSubmission(submission)}
+                          className="inline-flex items-center gap-1 text-brand-600 dark:text-brand-400 hover:underline text-xs font-medium bg-transparent border-0 p-0 cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5" /> {t("submissions.download")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenSubmissionInNewTab(submission)}
+                          className="inline-flex items-center gap-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:underline text-xs font-medium bg-transparent border-0 p-0 cursor-pointer"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />{" "}
+                          {t("submissions.openInNewTab", { defaultValue: "Open in new tab" })}
+                        </button>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <input

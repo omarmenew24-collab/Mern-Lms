@@ -1,18 +1,23 @@
-import { CheckCircle, FileText, Trophy, RefreshCcw, BookOpen, ClipboardCheck, Star } from "lucide-react";
-import CertificateTemplate from "../../CertificateTemplate";
-import { useRef } from "react";
-import { useReactToPrint } from "react-to-print";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
+import { CheckCircle, FileText, Trophy, RefreshCcw, BookOpen, ClipboardCheck, Star, Loader2 } from "lucide-react";
+import { downloadCourseCertificatePdf } from "../../../api/course";
 import { CourseRatingForm } from "../../CourseRatingBlock";
+import { paths } from "../../../config/paths";
+import { getApproximateLectureTimeRemainingPhrase } from "../../../lib/estimateLectureTimeRemaining";
 
 /**
  * Enrolled student: rich progress card with breakdown + rating + certificate.
  */
 export default function StudentProgressCard({
-  user,
+  courseId,
   courseTitle,
   progressPercent,
   isFullProgress,
   isApproved,
+  certificateCode,
   totalLectures = 0,
   completedLecturesCount = 0,
   totalTasks = 0,
@@ -22,18 +27,37 @@ export default function StudentProgressCard({
   isSubmittingRating = false,
   ratingBlocked = false,
   showRefundLink = false,
+  /** Same lecture list used for counts; used to average `duration` (seconds) for the estimate. */
+  lectures = [],
 }) {
-  const certificateRef = useRef(null);
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [downloading, setDownloading] = useState(false);
   const progress = Math.min(100, Math.max(0, Number(progressPercent || 0)));
   const shouldShowCertificate = isApproved || isFullProgress || progress >= 80;
 
-  const handlePrint = useReactToPrint({
-    contentRef: certificateRef,
-    documentTitle: `${user?.name}_${courseTitle}_Certificate`,
-  });
+  const handleDownload = async () => {
+    if (!isApproved || !courseId || downloading) return;
+    setDownloading(true);
+    try {
+      await downloadCourseCertificatePdf({ courseId, queryClient });
+    } catch {
+      /* toast in api */
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const lecturePercent = totalLectures > 0 ? Math.round((completedLecturesCount / totalLectures) * 100) : 0;
   const taskPercent = totalTasks > 0 ? Math.round((completedTasksCount / totalTasks) * 100) : 0;
+
+  const timeRemainingPhrase = useMemo(
+    () =>
+      isFullProgress
+        ? null
+        : getApproximateLectureTimeRemainingPhrase(lectures, totalLectures, completedLecturesCount),
+    [lectures, totalLectures, completedLecturesCount, isFullProgress],
+  );
 
   return (
     <div
@@ -64,7 +88,7 @@ export default function StudentProgressCard({
                 isFullProgress ? "text-white" : "text-gray-900 dark:text-white"
               }`}
             >
-              {isFullProgress ? "Course completed!" : "Your progress"}
+              {isFullProgress ? t("workspace.progressCard.courseCompleted") : t("workspace.progressCard.yourProgress")}
             </span>
           </div>
           <span
@@ -90,9 +114,13 @@ export default function StudentProgressCard({
           />
         </div>
 
+        {!isFullProgress && timeRemainingPhrase && (
+          <p className="mt-2.5 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{timeRemainingPhrase}.</p>
+        )}
+
         {isFullProgress && (
           <p className="mt-2.5 text-sm text-white/90">
-            Congratulations! You&apos;ve mastered all the materials.
+            {t("workspace.progressCard.congrats")}
           </p>
         )}
       </div>
@@ -115,7 +143,7 @@ export default function StudentProgressCard({
                     style={{ width: `${lecturePercent}%` }}
                   />
                 </div>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">Lectures</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{t("workspace.progressCard.lectures")}</p>
               </div>
             </div>
           )}
@@ -134,7 +162,7 @@ export default function StudentProgressCard({
                     style={{ width: `${taskPercent}%` }}
                   />
                 </div>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">Tasks</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{t("workspace.progressCard.tasks")}</p>
               </div>
             </div>
           )}
@@ -150,24 +178,39 @@ export default function StudentProgressCard({
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
             >
               <RefreshCcw className="w-3.5 h-3.5" />
-              Refund options
+              {t("workspace.progressCard.refundOptions")}
             </a>
           )}
           {shouldShowCertificate && (
             <button
               type="button"
-              onClick={() => isApproved && handlePrint()}
-              disabled={!isApproved}
-              title={!isApproved ? "Certificate pending approval by your instructor" : undefined}
+              onClick={() => handleDownload()}
+              disabled={!isApproved || downloading || !courseId}
+              title={!isApproved ? t("workspace.progressCard.certificatePending") : undefined}
               className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                 isApproved
                   ? "bg-brand-600 text-white hover:bg-brand-700"
                   : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed"
               }`}
             >
-              <FileText className="w-3.5 h-3.5" />
-              {isApproved ? "Download certificate" : "Certificate locked"}
+              {downloading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <FileText className="w-3.5 h-3.5" />
+              )}
+              {isApproved ? t("workspace.progressCard.downloadCertificate") : t("workspace.progressCard.certificateLocked")}
             </button>
+          )}
+          {certificateCode && isApproved && (
+            <Link
+              to={paths.certificateVerify(certificateCode)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-gray-600 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400"
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              {t("workspace.progressCard.verifyCredential")}
+            </Link>
           )}
         </div>
 
@@ -176,7 +219,7 @@ export default function StudentProgressCard({
           <div className="pt-3 border-t border-gray-100 dark:border-gray-800">
             <div className="flex items-center gap-1.5 mb-2">
               <Star className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Rate this course</span>
+              <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{t("workspace.progressCard.rateCourse")}</span>
             </div>
             <CourseRatingForm
               viewerState={ratingBlocked ? "rating_blocked" : "can_rate"}
@@ -186,16 +229,6 @@ export default function StudentProgressCard({
             />
           </div>
         )}
-      </div>
-
-      {/* Hidden certificate for print */}
-      <div className="absolute -z-50 opacity-0 pointer-events-none" aria-hidden>
-        <CertificateTemplate
-          ref={certificateRef}
-          studentName={user?.name}
-          courseTitle={courseTitle}
-          date={new Date().toLocaleDateString()}
-        />
       </div>
     </div>
   );

@@ -27,8 +27,6 @@ const HeaderLeftSide = () => {
     else if (user.role === "teacher") navigate("/teacher");
   };
 
-  const handleTeach = () => navigate(paths.teachingApply);
-
   const isOnMyPage =
     (user?.role === "student" && location.pathname.startsWith("/student")) ||
     (user?.role === "teacher" && location.pathname.startsWith("/teacher")) ||
@@ -43,15 +41,6 @@ const HeaderLeftSide = () => {
       >
         {siteName}
       </span>
-
-      {user?.role !== "teacher" && user && user?.role !== "admin" && (
-        <button
-          onClick={handleTeach}
-          className="hidden sm:inline-flex text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-        >
-          {t("nav.teachWithUs")}
-        </button>
-      )}
 
       {(user?.role === "teacher" || user?.role === "admin") && (
         <button

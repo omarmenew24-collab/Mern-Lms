@@ -2,6 +2,7 @@ import Submission from "../models/submission.model.js";
 import Task from "../models/task.model.js";
 import Course from "../models/course.model.js";
 import { uploadFile } from "../lib/cloudinaryupload.js";
+import { buildSubmissionOriginalFileName } from "../lib/submissionFilename.js";
 import { updateUnifiedProgress } from "../lib/utils.js";
 import Enrollment from "../models/enrollment.model.js";
 import CourseCompletion from "../models/courseCompletion.model.js";
@@ -75,10 +76,14 @@ export const uploadfile = async (req, res) => {
     }
 
     const fileUrl = await uploadFile(req.file.path);
+    const originalFileName = buildSubmissionOriginalFileName(
+      req.file.originalname,
+      req.file.mimetype,
+    );
 
     const submission = await Submission.findOneAndUpdate(
       { taskId, studentId },
-      { fileUrl, submittedAt: new Date() },
+      { fileUrl, originalFileName, submittedAt: new Date() },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
 

@@ -5,6 +5,7 @@ import {
   deleteLecture,
   getLecturesByCourse,
   markLectureAsComplete,
+  toggleLectureAcknowledgment,
 } from "../controllers/lecture.controller.js";
 import {
   getVimeoUploadStatus,
@@ -36,6 +37,12 @@ router.patch(
 );
 
 router.get("/course/:courseId/lectures", protectRoute, getLecturesByCourse);
+
+router.patch(
+  "/courses/lecture/:courseId/:lectureId/acknowledge",
+  protectRoute,
+  toggleLectureAcknowledgment,
+);
 
 router.post(
   "/courses/lecture/:courseId/:lectureId",

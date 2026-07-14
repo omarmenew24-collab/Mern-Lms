@@ -13,23 +13,23 @@ import PaymentRoutes from "./src/routes/payment.route.js";
 import ManualPaymentRoutes from "./src/routes/manualPayment.route.js";
 import UploadRoutes from "./src/routes/upload.route.js";
 import LectureRoutes from "./src/routes/lecture.route.js";
-import TeachingRoutes from "./src/routes/teaching.route.js";
 import TaskRoutes from "./src/routes/task.route.js";
 import AdminRoutes from "./src/routes/admin.route.js";
 import NotificationRoutes from "./src/routes/notification.route.js";
 import RefundRoutes from "./src/routes/refund.route.js";
-import ChargebackRoutes from "./src/routes/chargeback.route.js";
+import CouponRoutes from "./src/routes/coupon.route.js";
 import {
   getPublicAbout,
   getPublicHomeAnnouncement,
   getPublicWhyLearn,
   getPublicMoneyBackGuarantee,
   getPublicSiteBranding,
+  getPublicPlatformStats,
 } from "./src/controllers/admin.controller.js";
+import { verifyCertificatePublic } from "./src/controllers/certificate.controller.js";
 
 // Import Webhook Controller directly
 import { webhook } from "./src/controllers/webhook.controller.js";
-
 
 dotenv.config();
 const app = express();
@@ -44,6 +44,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
+      "http://localhost:5174",
       "https://mern-lms-frontend-kcn4.onrender.com",
     ],
     credentials: true,
@@ -67,6 +68,8 @@ app.get("/api/public/site-branding", getPublicSiteBranding);
 app.get("/api/public/about", getPublicAbout);
 app.get("/api/public/why-learn", getPublicWhyLearn);
 app.get("/api/public/money-back-guarantee", getPublicMoneyBackGuarantee);
+app.get("/api/public/platform-stats", getPublicPlatformStats);
+app.get("/api/public/certificate-verify/:code", verifyCertificatePublic);
 
 // --- 3. ROUTES ---
 app.use("/api", ManualPaymentRoutes);
@@ -75,12 +78,11 @@ app.use("/api", AuthRoutes);
 app.use("/api", CourseRoutes);
 app.use("/api", UploadRoutes);
 app.use("/api", LectureRoutes);
-app.use("/api", TeachingRoutes);
 app.use("/api", TaskRoutes);
 app.use("/api", AdminRoutes);
 app.use("/api", NotificationRoutes);
 app.use("/api", RefundRoutes);
-app.use("/api", ChargebackRoutes);
+app.use("/api", CouponRoutes);
 
 // --- START SERVER ---
 const PORT = process.env.PORT || 3000;

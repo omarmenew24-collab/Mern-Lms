@@ -9,11 +9,11 @@ import {
   useGetBulkProgress,
   useGetCourseById,
   useGetStudentsByCourse,
-  useReviewCourse,
   useSetCoursePublished,
   useSoftDeleteCourse,
   useUpdateCourse,
   useGetCourseCategories,
+  useCourseRosterLearnerSnapshots,
 } from "../../api/course";
 import {
   useGetCoursePaymentReport,
@@ -35,6 +35,7 @@ import CourseCatalogSectionsForm, {
 } from "../../components/course/CourseCatalogSectionsForm";
 import SavedCourseCategoryChips from "../../components/course/SavedCourseCategoryChips";
 import CourseCategoryField from "../../components/course/CourseCategoryField";
+import { Film, Gift } from "lucide-react";
 
 const tabs = [
   { id: "overview", label: "Overview" },
@@ -63,12 +64,16 @@ export default function AdminCourseDetails() {
   const { courseId } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
-  const [reviewNote, setReviewNote] = useState("");
+
   const [courseForm, setCourseForm] = useState({
     title: "",
     description: "",
     category: "",
+    trailerTitle: "",
+    trailerVideoUrl: "",
+    trailerVimeoVideoId: "",
     price: "",
+    isFree: false,
     promotionEnabled: false,
     promotionType: "percent",
     promotionValue: "",
@@ -91,6 +96,9 @@ export default function AdminCourseDetails() {
     useGetStudentsByCourse(courseId);
   const { bulkprogressData, isbulkLoading } = useGetBulkProgress(courseId);
 
+  const { data: rosterLearnerSnapshots = [], isLoading: rosterSnapshotsLoading } =
+    useCourseRosterLearnerSnapshots(courseId);
+
   const {
     totalRevenue,
     currency,
@@ -105,7 +113,6 @@ export default function AdminCourseDetails() {
 
   const { setCoursePublished, isPending: isPublishPending } =
     useSetCoursePublished(courseId);
-  const { reviewCourse, isPending: isReviewPending } = useReviewCourse(courseId);
   const { softDeleteCourse, isPending: isDeletePending } =
     useSoftDeleteCourse(courseId);
   const { saveCourse, isPending: isSaveCoursePending } = useUpdateCourse(courseId);
@@ -164,7 +171,11 @@ export default function AdminCourseDetails() {
     title: courseForm.title,
     description: courseForm.description,
     category: courseForm.category,
+    trailerTitle: courseForm.trailerTitle,
+    trailerVideoUrl: courseForm.trailerVideoUrl,
+    trailerVimeoVideoId: courseForm.trailerVimeoVideoId,
     price: Number(courseForm.price),
+    isFree: Boolean(courseForm.isFree),
     image: courseImageFile,
     promotionEnabled: courseForm.promotionEnabled,
     promotionType: courseForm.promotionType,
@@ -229,7 +240,11 @@ export default function AdminCourseDetails() {
       title: course?.title || "",
       description: course?.description || "",
       category: course?.category || "",
+      trailerTitle: typeof course?.trailerTitle === "string" ? course.trailerTitle : "",
+      trailerVideoUrl: typeof course?.trailerVideoUrl === "string" ? course.trailerVideoUrl : "",
+      trailerVimeoVideoId: typeof course?.trailerVimeoVideoId === "string" ? course.trailerVimeoVideoId : "",
       price: course?.price ?? "",
+      isFree: Boolean(course?.isFree),
       promotionEnabled: Boolean(p?.enabled),
       promotionType: p?.discountType === "fixed" ? "fixed" : "percent",
       promotionValue: p?.value !== undefined && p?.value !== null ? String(p.value) : "",
@@ -245,7 +260,11 @@ export default function AdminCourseDetails() {
     course?.title,
     course?.description,
     course?.category,
+    course?.trailerTitle,
+    course?.trailerVideoUrl,
+    course?.trailerVimeoVideoId,
     course?.price,
+    course?.isFree,
     course?.promotion,
     course?.commentsDisabled,
     course?.ratingsDisabled,
@@ -496,6 +515,8 @@ export default function AdminCourseDetails() {
                 onBulkEnroll={handleBulkEnroll}
                 isBulkEnrolling={isBulkEnrolling}
                 adminRosterExportCourseId={courseId}
+                learnerSnapshots={rosterLearnerSnapshots}
+                learnerSnapshotsLoading={rosterSnapshotsLoading}
               />
 
               <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4">
@@ -591,6 +612,8 @@ export default function AdminCourseDetails() {
             onBulkEnroll={handleBulkEnroll}
             isBulkEnrolling={isBulkEnrolling}
             adminRosterExportCourseId={courseId}
+            learnerSnapshots={rosterLearnerSnapshots}
+            learnerSnapshotsLoading={rosterSnapshotsLoading}
           />
         )}
 
@@ -783,6 +806,62 @@ export default function AdminCourseDetails() {
                   className="w-full h-10 px-3 text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-shadow"
                   required
                 />
+
+                <div className="rounded-lg border border-emerald-200/80 dark:border-emerald-800/50 bg-emerald-50/40 dark:bg-emerald-950/20 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Film className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span className="text-sm font-bold text-gray-900 dark:text-white">{t("coursePublic.trailerTitle")}</span>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">{t("coursePublic.trailerHelpShort")}</p>
+                  <input
+                    type="text"
+                    name="trailerTitle"
+                    value={courseForm.trailerTitle}
+                    onChange={handleCourseFieldChange}
+                    placeholder={t("coursePublic.trailerDefaultTitle")}
+                    maxLength={200}
+                    className="w-full h-10 px-3 text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-shadow"
+                  />
+                  <input
+                    type="url"
+                    name="trailerVideoUrl"
+                    value={courseForm.trailerVideoUrl}
+                    onChange={handleCourseFieldChange}
+                    placeholder="https://… (YouTube, Vimeo, or .mp4)"
+                    maxLength={500}
+                    className="w-full h-10 px-3 text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-shadow"
+                  />
+                  <input
+                    type="text"
+                    name="trailerVimeoVideoId"
+                    value={courseForm.trailerVimeoVideoId}
+                    onChange={handleCourseFieldChange}
+                    placeholder="Vimeo numeric ID (optional)"
+                    maxLength={24}
+                    className="w-full h-10 px-3 text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-shadow"
+                  />
+                </div>
+                <div className="rounded-lg border border-brand-200/80 dark:border-brand-800/50 bg-brand-50/40 dark:bg-brand-950/20 p-4 space-y-2">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={courseForm.isFree}
+                      onChange={(e) =>
+                        setCourseForm((prev) => ({ ...prev, isFree: e.target.checked }))
+                      }
+                      className="mt-1 rounded border-gray-300"
+                    />
+                    <span>
+                      <span className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
+                        <Gift className="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0" />
+                        {t("adminCourse.freeToggle")}
+                      </span>
+                      <span className="block text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        {t("adminCourse.freeToggleHint")}
+                      </span>
+                    </span>
+                  </label>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                     List price (USD)
@@ -800,7 +879,11 @@ export default function AdminCourseDetails() {
                   />
                 </div>
 
-                <div className="rounded-lg border border-dashed border-gray-200 dark:border-gray-700 p-4 space-y-3">
+                <div
+                  className={`rounded-lg border border-dashed border-gray-200 dark:border-gray-700 p-4 space-y-3 ${
+                    courseForm.isFree ? "opacity-50 pointer-events-none" : ""
+                  }`}
+                >
                   <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Optional sale (promotion)</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     <strong className="text-gray-700 dark:text-gray-300">Percent off</strong> — enter how much of the price to remove as a percent (e.g. 20 means the student pays 80% of the list price).
@@ -950,56 +1033,6 @@ export default function AdminCourseDetails() {
                   </button>
                 </div>
               </form>
-            </div>
-
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-6">
-              <div className="text-sm font-bold text-gray-900 dark:text-white">
-                Review workflow
-              </div>
-              <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                Current status: <span className="font-semibold">{course.status || "draft"}</span>
-              </div>
-              {course.reviewNote ? (
-                <div className="mt-3 text-sm text-red-600 dark:text-red-400">
-                  Last note: {course.reviewNote}
-                </div>
-              ) : null}
-
-              <div className="mt-4 grid gap-3">
-                <textarea
-                  value={reviewNote}
-                  onChange={(e) => setReviewNote(e.target.value)}
-                  placeholder="Optional note when requesting changes..."
-                  rows={3}
-                  className="w-full h-10 px-3 text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-shadow"
-                />
-                <div className="flex gap-2 flex-wrap">
-                  <button
-                    disabled={isReviewPending}
-                    onClick={() => reviewCourse({ action: "approve", reviewNote: "" })}
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                      isReviewPending
-                        ? "bg-gray-200 dark:bg-gray-800 text-gray-400 cursor-not-allowed"
-                        : "bg-emerald-600 text-white hover:bg-emerald-700"
-                    }`}
-                  >
-                    Approve & publish
-                  </button>
-                  <button
-                    disabled={isReviewPending}
-                    onClick={() =>
-                      reviewCourse({ action: "reject", reviewNote: reviewNote.trim() })
-                    }
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                      isReviewPending
-                        ? "bg-gray-200 dark:bg-gray-800 text-gray-400 cursor-not-allowed"
-                        : "bg-amber-600 text-white hover:bg-amber-700"
-                    }`}
-                  >
-                    Request changes
-                  </button>
-                </div>
-              </div>
             </div>
 
             <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-6">

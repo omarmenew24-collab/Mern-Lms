@@ -1,5 +1,7 @@
 import cloudinary from './config.js';
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
 export const uploadFile = async (filePath) => {
   try {
@@ -45,6 +47,23 @@ export const uploadManualReceipt = async (filePath, mimetype) => {
     };
   } catch (error) {
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    throw error;
+  }
+};
+
+/** Upload a generated certificate PDF (raw) and return HTTPS URL. */
+export const uploadCertificatePdfBuffer = async (buffer) => {
+  const tmp = path.join(os.tmpdir(), `cert-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`);
+  try {
+    fs.writeFileSync(tmp, buffer);
+    const result = await cloudinary.uploader.upload(tmp, {
+      folder: "course-platform/certificates",
+      resource_type: "raw",
+    });
+    fs.unlinkSync(tmp);
+    return result.secure_url || result.url;
+  } catch (error) {
+    if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
     throw error;
   }
 };

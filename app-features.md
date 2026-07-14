@@ -46,7 +46,7 @@ It is intentionally broader than a "course player" and includes operational tool
 ### Course and Content Management
 - Course authoring/editing.
 - Category organization.
-- Review/publish governance lifecycle.
+- Instructor publish (validation checklist; catalog visibility when published).
 - Public catalog for approved/published courses.
 
 ### Learning Delivery
@@ -81,9 +81,6 @@ It is intentionally broader than a "course player" and includes operational tool
 - Announcement broadcasting to learners/cohorts.
 - Optional email-linked communication hooks.
 
-### Instructor Growth
-- "Become a teacher" request and admin decision flow.
-
 ## Core User Journeys
 
 ### Journey 1: Discover -> Purchase -> Learn
@@ -94,12 +91,10 @@ It is intentionally broader than a "course player" and includes operational tool
 5. Enrollment activates.
 6. Student begins learning and submissions.
 
-### Journey 2: Author -> Review -> Publish
+### Journey 2: Author -> Publish
 1. Teacher creates course and content.
-2. Teacher submits for review.
-3. Admin approves or requests edits.
-4. Course is published to catalog.
-5. Teacher tracks student outcomes.
+2. Teacher validates catalog readiness (built-in checklist) and publishes — course becomes visible in catalog.
+3. Teacher tracks student outcomes.
 
 ### Journey 3: Post-Payment Operations
 1. Admin monitors transactions.

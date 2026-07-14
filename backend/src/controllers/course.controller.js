@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Course from "../models/course.model.js";
 import CourseRating from "../models/courseRating.model.js";
 import User from "../models/user.model.js";
@@ -13,6 +14,13 @@ import {
   parsePromotionInput,
   validateCheckoutPrice,
 } from "../lib/coursePricing.js";
+import { parseHttpUrl } from "../lib/safeHttpUrl.js";
+import { buildLearnerEnrollmentSnapshot } from "../services/learnerEnrollmentSnapshot.service.js";
+import { buildCourseCurriculumAnalytics } from "../services/curriculumAnalytics.service.js";
+import { buildCourseInstructorActivity } from "../services/courseInstructorActivity.service.js";
+import { buildCourseTaskAnalytics } from "../services/taskAnalytics.service.js";
+import { buildTeacherDashboard } from "../services/teacherDashboard.service.js";
+import { buildStudentDashboard } from "../services/studentDashboard.service.js";
 
 // Authorization helper: only admin or the teacher that owns the course can proceed.
 function escapeRegExp(str) {
@@ -140,8 +148,10 @@ const validateCourseReadyForReview = async (course) => {
     problems.push("Description must be at least 20 characters");
   }
   if (!course.category?.trim()) problems.push("Category is required");
-  if (!Number.isFinite(Number(course.price)) || Number(course.price) <= 0) {
-    problems.push("Price must be greater than zero");
+  if (!course.isFree) {
+    if (!Number.isFinite(Number(course.price)) || Number(course.price) <= 0) {
+      problems.push("Price must be greater than zero (unless the course is marked free in admin settings)");
+    }
   }
 
   const lectureCount = await Lecture.countDocuments({ course: course._id });
@@ -320,9 +330,13 @@ export const updateCourseDetails = async (req, res) => {
     }
 
     if (isAdmin) {
-      const revalidate = req.body.price !== undefined || promotionPatch;
+      const isFreePatch = req.body.isFree !== undefined;
+      if (isFreePatch) {
+        course.isFree = parseCatalogBoolean(req.body.isFree, false);
+      }
+      const revalidate = req.body.price !== undefined || promotionPatch || isFreePatch;
       if (revalidate) {
-        const chk = validateCheckoutPrice(Number(course.price), course.promotion);
+        const chk = validateCheckoutPrice(Number(course.price), course.promotion, Boolean(course.isFree));
         if (!chk.ok) {
           return res.status(400).json({ message: chk.message });
         }
@@ -377,6 +391,33 @@ export const updateCourseDetails = async (req, res) => {
       );
     }
 
+    if (req.body.trailerTitle !== undefined) {
+      course.trailerTitle =
+        typeof req.body.trailerTitle === "string" ? req.body.trailerTitle.trim().slice(0, 200) : "";
+    }
+    if (req.body.trailerVideoUrl !== undefined) {
+      const raw = typeof req.body.trailerVideoUrl === "string" ? req.body.trailerVideoUrl.trim() : "";
+      if (!raw) {
+        course.trailerVideoUrl = "";
+      } else {
+        const p = parseHttpUrl(raw);
+        if (!p.ok) {
+          return res.status(400).json({ message: p.message || "Invalid trailer video URL" });
+        }
+        course.trailerVideoUrl = p.value.slice(0, 500);
+      }
+    }
+    if (req.body.trailerVimeoVideoId !== undefined) {
+      const v = typeof req.body.trailerVimeoVideoId === "string" ? req.body.trailerVimeoVideoId.trim() : "";
+      if (!v) {
+        course.trailerVimeoVideoId = "";
+      } else if (!/^\d{3,20}$/.test(v)) {
+        return res.status(400).json({ message: "Trailer Vimeo video ID must be a numeric Vimeo ID (3–20 digits)" });
+      } else {
+        course.trailerVimeoVideoId = v;
+      }
+    }
+
     await course.save();
     await upsertCourseCategory(course.teacher, course.category);
     await course.populate("teacher", "name");
@@ -418,88 +459,50 @@ export const setCoursePublished = async (req, res) => {
   }
 };
 
-export const submitCourseForReview = async (req, res) => {
+/**
+ * Instructor (course owner) or admin publishes the course immediately (no admin review workflow).
+ */
+export const publishCourseAsInstructor = async (req, res) => {
   try {
     const { courseId } = req.params;
+
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
-    if (req.user.role !== "teacher") {
-      return res
-        .status(403)
-        .json({ message: "Only teachers can submit for review" });
-    }
 
     const course = await Course.findById(courseId);
     if (!course) return res.status(404).json({ message: "Course not found" });
-    if (course.teacher.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "Access denied" });
-    }
     if (course.isDeleted) {
-      return res.status(400).json({ message: "Cannot review deleted course" });
+      return res.status(400).json({ message: "Cannot publish a deleted course" });
+    }
+
+    const isAdmin = req.user.role === "admin";
+    const isOwnerTeacher =
+      req.user.role === "teacher" &&
+      course.teacher.toString() === req.user._id.toString();
+
+    if (!isAdmin && !isOwnerTeacher) {
+      return res.status(403).json({ message: "Access denied" });
     }
 
     const problems = await validateCourseReadyForReview(course);
     if (problems.length > 0) {
       return res.status(400).json({
-        message: "Course is not ready for review",
+        message: "Course is not ready to publish",
         checklist: problems,
       });
     }
 
-    course.status = "pending_review";
-    course.isPublished = false;
+    course.status = "published";
+    course.isPublished = true;
     course.reviewNote = "";
     await course.save();
+    await course.populate("teacher", "name");
 
     return res.status(200).json({
-      message: "Course submitted for admin review",
-      status: course.status,
+      message: "Course published",
+      course: attachPricingToCourseDoc(course),
     });
   } catch (error) {
-    console.error("submitCourseForReview:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
-  }
-};
-
-export const reviewCourse = async (req, res) => {
-  try {
-    const { courseId } = req.params;
-    const { action, reviewNote } = req.body;
-
-    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ message: "Access denied - Admins only" });
-    }
-
-    if (!["approve", "reject"].includes(action)) {
-      return res.status(400).json({ message: "Invalid review action" });
-    }
-
-    const course = await Course.findById(courseId);
-    if (!course) return res.status(404).json({ message: "Course not found" });
-    if (course.isDeleted) {
-      return res.status(400).json({ message: "Cannot review deleted course" });
-    }
-
-    if (action === "approve") {
-      course.status = "published";
-      course.isPublished = true;
-      course.reviewNote = "";
-    } else {
-      course.status = "changes_requested";
-      course.isPublished = false;
-      course.reviewNote = String(reviewNote || "").trim();
-    }
-
-    await course.save();
-    return res.status(200).json({
-      message:
-        action === "approve" ? "Course approved and published" : "Changes requested",
-      status: course.status,
-      isPublished: course.isPublished,
-      reviewNote: course.reviewNote,
-    });
-  } catch (error) {
-    console.error("reviewCourse:", error);
+    console.error("publishCourseAsInstructor:", error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -605,6 +608,13 @@ export const deletecourse = async (req, res) => {
 
 export const getstudentcourses = async (req, res) => {
   try {
+    if (req.user?.role !== "student") {
+      return res.status(403).json({
+        success: false,
+        message: "Only student accounts can access enrolled courses",
+      });
+    }
+
     // 1. Take ID from req.user (provided by your protect/auth middleware)
     const studentId = req.user._id;
 
@@ -634,6 +644,48 @@ export const getstudentcourses = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error. Could not fetch courses.",
+    });
+  }
+};
+
+/**
+ * Admin-only (see admin.route): enrolled courses for any user by id.
+ * Same `courses` array shape as `GET /courses/enrolled` for the student themselves.
+ */
+export const getStudentEnrolledCoursesForAdmin = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!mongoose.isValidObjectId(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user id",
+      });
+    }
+
+    const enrollments = await Enrollment.find({
+      student: userId,
+      status: "active",
+    })
+      .populate({
+        path: "course",
+        populate: { path: "teacher", select: "name email" },
+      })
+      .populate("student", "name email");
+
+    const enrolledCourses = enrollments
+      .filter((enrollment) => enrollment.course != null)
+      .map((enrollment) => enrollment.course);
+
+    return res.status(200).json({
+      success: true,
+      count: enrolledCourses.length,
+      courses: enrolledCourses,
+    });
+  } catch (err) {
+    console.error("getStudentEnrolledCoursesForAdmin:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error. Could not fetch enrolled courses.",
     });
   }
 };
@@ -772,19 +824,18 @@ export const getCourseProgress = async (req, res) => {
     });
 
     // 🔒 Access control
-    // if (!isAdmin && !isOwnerTeacher && !isRequesterEnrolled) {
-    //  console.log("from get course progress")
-    //  return res.status(403).json({ message: "Access denied" });
-    // }
+    if (!isAdmin && !isOwnerTeacher && !isRequesterEnrolled) {
+      return res.status(403).json({ message: "Access denied" });
+    }
 
     // 🔒 If requesting another student's progress, only admin or owner teacher allowed
-    //  if (
-    //   studentId.toString() !== req.user._id.toString() &&
-    //   !isAdmin &&
-    //   !isOwnerTeacher
-    //  ) {
-    //  return res.status(403).json({ message: "Access denied" });
-    // }
+    if (
+      studentId.toString() !== req.user._id.toString() &&
+      !isAdmin &&
+      !isOwnerTeacher
+    ) {
+      return res.status(403).json({ message: "Access denied" });
+    }
 
     console.log("studentId:", studentId);
     console.log("courseId:", courseId);
@@ -801,6 +852,7 @@ export const getCourseProgress = async (req, res) => {
         progress: 0,
         completedLectures: [],
         completedTasks: [],
+        acknowledgedLectures: [],
         isCompleted: false,
         certificateApproved: false,
       });
@@ -849,6 +901,196 @@ export const getBulkCourseProgress = async (req, res) => {
     res
       .status(500)
       .json({ message: "Error fetching bulk progress", error: error.message });
+  }
+};
+
+/** Admin or course owner: full learner summary for every active enrollment. */
+export const getCourseRosterLearnerSnapshots = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const mini = await requireCourseTeacherOrAdmin(req, courseId, res);
+    if (!mini) return;
+
+    const roster = await Enrollment.find({
+      course: courseId,
+      status: "active",
+    })
+      .select("student")
+      .lean();
+
+    const studentIds = [...new Set(roster.map((r) => String(r.student)))];
+    const users = await User.find({ _id: { $in: studentIds } })
+      .select("name email")
+      .lean();
+    const byUser = new Map(users.map((u) => [String(u._id), u]));
+
+    const snapshots = [];
+    for (const sid of studentIds) {
+      const snap = await buildLearnerEnrollmentSnapshot(courseId, sid);
+      if (!snap) continue;
+      const u = byUser.get(sid);
+      snapshots.push({
+        ...snap,
+        studentName: u?.name || "—",
+        studentEmail: u?.email || "",
+      });
+    }
+
+    snapshots.sort((a, b) =>
+      String(a.studentName || "").localeCompare(String(b.studentName || ""), undefined, {
+        sensitivity: "base",
+      }),
+    );
+
+    res.json({ snapshots });
+  } catch (e) {
+    console.error("getCourseRosterLearnerSnapshots:", e);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/** Staff: per-level and per-lecture curriculum analytics for the teacher workspace. */
+export const getCourseCurriculumAnalytics = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const mini = await requireCourseTeacherOrAdmin(req, courseId, res);
+    if (!mini) return;
+
+    const analytics = await buildCourseCurriculumAnalytics(courseId);
+    res.json(analytics);
+  } catch (e) {
+    console.error("getCourseCurriculumAnalytics:", e);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/** Staff: actionable activity feed for the instructor workspace Activity tab. */
+export const getCourseInstructorActivity = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const mini = await requireCourseTeacherOrAdmin(req, courseId, res);
+    if (!mini) return;
+
+    const activity = await buildCourseInstructorActivity(courseId);
+    res.json(activity);
+  } catch (e) {
+    console.error("getCourseInstructorActivity:", e);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/** Staff: per-type and per-task analytics for the instructor tasks workspace. */
+export const getCourseTaskAnalytics = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const mini = await requireCourseTeacherOrAdmin(req, courseId, res);
+    if (!mini) return;
+
+    const analytics = await buildCourseTaskAnalytics(courseId);
+    res.json(analytics);
+  } catch (e) {
+    console.error("getCourseTaskAnalytics:", e);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/** Staff: one learner summary (course student detail page). */
+export const getLearnerEnrollmentSnapshotSingle = async (req, res) => {
+  try {
+    const { courseId, studentId } = req.params;
+    const mini = await requireCourseTeacherOrAdmin(req, courseId, res);
+    if (!mini) return;
+
+    const snap = await buildLearnerEnrollmentSnapshot(courseId, studentId);
+    if (!snap) {
+      return res.status(404).json({ message: "Enrollment not found" });
+    }
+
+    const u = await User.findById(studentId).select("name email").lean();
+    res.json({
+      snapshot: {
+        ...snap,
+        studentName: u?.name || "—",
+        studentEmail: u?.email || "",
+      },
+    });
+  } catch (e) {
+    console.error("getLearnerEnrollmentSnapshotSingle:", e);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const VISIT_DEBOUNCE_MS = 60 * 60 * 1000;
+
+/** Student: bump workspace visit count (debounced) when opening the course workspace. */
+export const recordCourseWorkspaceVisit = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+    if (req.user.role !== "student") {
+      return res.status(403).json({ message: "Only learners can record visits" });
+    }
+
+    const studentId = req.user._id;
+
+    const enrolled = await Enrollment.exists({
+      student: studentId,
+      course: courseId,
+      status: "active",
+    });
+    if (!enrolled) {
+      return res.status(403).json({ message: "You are not enrolled in this course" });
+    }
+
+    let doc = await CourseCompletion.findOne({
+      student: studentId,
+      course: courseId,
+    });
+
+    const nowMs = Date.now();
+
+    if (!doc) {
+      await CourseCompletion.create({
+        student: studentId,
+        course: courseId,
+        progress: 0,
+        completedLectures: [],
+        completedTasks: [],
+        submissions: [],
+        workspaceVisitCount: 1,
+        firstWorkspaceVisitAt: new Date(),
+        lastWorkspaceVisitAt: new Date(),
+      });
+      return res.status(200).json({
+        workspaceVisitCount: 1,
+        counted: true,
+      });
+    }
+
+    const lastMs = doc.lastWorkspaceVisitAt
+      ? doc.lastWorkspaceVisitAt.getTime()
+      : 0;
+    if (!lastMs || nowMs - lastMs > VISIT_DEBOUNCE_MS) {
+      doc.workspaceVisitCount = (doc.workspaceVisitCount || 0) + 1;
+      if (!doc.firstWorkspaceVisitAt) {
+        doc.firstWorkspaceVisitAt = new Date();
+      }
+      doc.lastWorkspaceVisitAt = new Date();
+      await doc.save();
+      return res.status(200).json({
+        workspaceVisitCount: doc.workspaceVisitCount,
+        counted: true,
+      });
+    }
+
+    return res.status(200).json({
+      workspaceVisitCount: doc.workspaceVisitCount || 0,
+      counted: false,
+    });
+  } catch (e) {
+    console.error("recordCourseWorkspaceVisit:", e);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -909,5 +1151,45 @@ export const getcoursesbyteacher = async (req, res) => {
   } catch (error) {
     console.error("Error fetching courses:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+/** Staff: teaching hub dashboard — course cards, summary stats, Q&A and drafts. */
+export const getTeacherDashboard = async (req, res) => {
+  try {
+    const { teacherId } = req.query;
+
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+    if (!teacherId) {
+      return res.status(400).json({ message: "teacherId is required" });
+    }
+    if (req.user.role === "student") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    if (req.user.role === "teacher" && req.user._id.toString() !== teacherId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const dashboard = await buildTeacherDashboard(teacherId);
+    res.json(dashboard);
+  } catch (error) {
+    console.error("getTeacherDashboard:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/** Student: learning hub dashboard — progress, due tasks, continue learning. */
+export const getStudentDashboard = async (req, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+    if (req.user.role !== "student") {
+      return res.status(403).json({ message: "Only students can access this dashboard" });
+    }
+
+    const dashboard = await buildStudentDashboard(req.user._id);
+    res.json(dashboard);
+  } catch (error) {
+    console.error("getStudentDashboard:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };

@@ -27,10 +27,11 @@ export function useMyManualPaymentOrders(enabled = true) {
 export function useCreateManualPaymentOrder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ courseId, paymentMethodId }) => {
+    mutationFn: async ({ courseId, paymentMethodId, couponCode }) => {
       const res = await axiosInstance.post("/manual-payments/orders", {
         courseId,
         paymentMethodId,
+        ...(couponCode ? { couponCode: String(couponCode).trim().toUpperCase() } : {}),
       });
       return res.data;
     },

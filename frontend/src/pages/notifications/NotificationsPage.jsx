@@ -43,9 +43,12 @@ function courseIdForLink(n) {
   return typeof c === "object" && c?._id != null ? c._id : c;
 }
 
+const ADMIN_MANUAL_PROOF_ACTION = "payment.manual_proof_admin";
+
 export default function NotificationsPage() {
   const { t, i18n } = useTranslation();
   const user = useUserStore((s) => s.user);
+  const isAdmin = user?.role === "admin";
   const [searchParams, setSearchParams] = useSearchParams();
   const { state: locState } = useLocation();
   const navigate = useNavigate();
@@ -187,15 +190,26 @@ export default function NotificationsPage() {
                   {n.message}
                 </p>
                 <p className={`text-xs mt-2 font-medium ${typeStyle(n.type)}`}>{n.type}</p>
-                {courseIdForLink(n) && (
-                  <Link
-                    to={paths.course(courseIdForLink(n))}
-                    onClick={(e) => e.stopPropagation()}
-                    className="text-xs font-medium text-brand-600 dark:text-brand-400 mt-2 inline-block hover:underline"
-                  >
-                    {t("notifications.viewCourse")}
-                  </Link>
-                )}
+                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                  {isAdmin && n.actionType === ADMIN_MANUAL_PROOF_ACTION && (
+                    <Link
+                      to={paths.adminManualPayments}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-xs font-medium text-rose-600 dark:text-rose-400 hover:underline"
+                    >
+                      {t("notifications.reviewManualPayments")}
+                    </Link>
+                  )}
+                  {courseIdForLink(n) && (
+                    <Link
+                      to={paths.course(courseIdForLink(n))}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
+                    >
+                      {t("notifications.viewCourse")}
+                    </Link>
+                  )}
+                </div>
               </div>
               <div className="flex flex-col items-end gap-1 shrink-0">
                 <span className="text-[11px] text-gray-400 tabular-nums">

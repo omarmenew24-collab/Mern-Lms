@@ -8,7 +8,6 @@ export const ADMIN_CSV_EXPORT_PATHS = {
   enrollments: "/admin/exports/enrollments",
   refunds: "/admin/exports/refunds",
   manualPayments: "/admin/exports/manual-payments",
-  chargebacks: "/admin/exports/chargebacks",
 };
 
 /**

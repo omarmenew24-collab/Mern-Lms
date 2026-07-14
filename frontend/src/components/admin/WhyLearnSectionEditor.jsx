@@ -1,4 +1,5 @@
 import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { WHY_LEARN_COLOR_OPTIONS, WHY_LEARN_ICON_OPTIONS } from "../../lib/whyLearnUi";
 
 const emptyCard = () => ({
@@ -16,6 +17,7 @@ const emptyCard = () => ({
  * @param {object} props.defaultTemplate
  */
 export default function WhyLearnSectionEditor({ value, onChange, disabled, defaultTemplate }) {
+  const { t } = useTranslation();
   const title = value?.title ?? "";
   const titleHighlight = value?.titleHighlight ?? "";
   const subtitle = value?.subtitle ?? "";
@@ -59,7 +61,7 @@ export default function WhyLearnSectionEditor({ value, onChange, disabled, defau
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Heading (before accent)</label>
+          <label className="text-xs font-medium text-gray-700 dark:text-gray-300">{t("workspace.whyLearnEditor.headingBefore")}</label>
           <input
             type="text"
             value={title}
@@ -71,7 +73,7 @@ export default function WhyLearnSectionEditor({ value, onChange, disabled, defau
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Accent (brand color)</label>
+          <label className="text-xs font-medium text-gray-700 dark:text-gray-300">{t("workspace.whyLearnEditor.accent")}</label>
           <input
             type="text"
             value={titleHighlight}
@@ -84,7 +86,7 @@ export default function WhyLearnSectionEditor({ value, onChange, disabled, defau
         </div>
       </div>
       <div>
-        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Subheading</label>
+        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">{t("workspace.whyLearnEditor.subheading")}</label>
         <textarea
           value={subtitle}
           onChange={(e) => setField({ subtitle: e.target.value.slice(0, 500) })}
@@ -99,7 +101,7 @@ export default function WhyLearnSectionEditor({ value, onChange, disabled, defau
 
       <div className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Feature cards</span>
+          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{t("workspace.whyLearnEditor.featureCards")}</span>
           <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
@@ -108,7 +110,7 @@ export default function WhyLearnSectionEditor({ value, onChange, disabled, defau
               className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
             >
               <Plus className="w-3.5 h-3.5" />
-              Add card
+              {t("workspace.whyLearnEditor.addCard")}
             </button>
             <button
               type="button"
@@ -116,14 +118,13 @@ export default function WhyLearnSectionEditor({ value, onChange, disabled, defau
               onClick={loadDefaults}
               className="text-[11px] font-medium text-violet-600 dark:text-violet-400 hover:underline disabled:opacity-50"
             >
-              Load platform defaults
+              {t("workspace.whyLearnEditor.loadDefaults")}
             </button>
           </div>
         </div>
         {cards.length === 0 ? (
           <p className="text-xs text-gray-500 dark:text-gray-400 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 p-3">
-            No cards saved — the public home page will use the platform defaults. Add a card, or use &quot;Load platform
-            defaults&quot; and save.
+            {t("workspace.whyLearnEditor.noCards")}
           </p>
         ) : (
           <ul className="space-y-3">
@@ -133,14 +134,14 @@ export default function WhyLearnSectionEditor({ value, onChange, disabled, defau
                 className="rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/40 p-3"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Card {i + 1}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{t("workspace.whyLearnEditor.card", { n: i + 1 })}</span>
                   <div className="flex items-center gap-0.5">
                     <button
                       type="button"
                       disabled={disabled || i === 0}
                       onClick={() => move(i, -1)}
                       className="p-1 rounded text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 disabled:opacity-30"
-                      aria-label="Move up"
+                      aria-label={t("workspace.whyLearnEditor.moveUp")}
                     >
                       <ChevronUp className="w-4 h-4" />
                     </button>
@@ -149,7 +150,7 @@ export default function WhyLearnSectionEditor({ value, onChange, disabled, defau
                       disabled={disabled || i === cards.length - 1}
                       onClick={() => move(i, 1)}
                       className="p-1 rounded text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 disabled:opacity-30"
-                      aria-label="Move down"
+                      aria-label={t("workspace.whyLearnEditor.moveDown")}
                     >
                       <ChevronDown className="w-4 h-4" />
                     </button>
@@ -158,7 +159,7 @@ export default function WhyLearnSectionEditor({ value, onChange, disabled, defau
                       disabled={disabled}
                       onClick={() => remove(i)}
                       className="p-1 rounded text-red-600 hover:bg-red-100 dark:hover:bg-red-950/50"
-                      aria-label="Remove card"
+                      aria-label={t("workspace.whyLearnEditor.removeCard")}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -171,7 +172,7 @@ export default function WhyLearnSectionEditor({ value, onChange, disabled, defau
                     onChange={(e) => updateCard(i, { title: e.target.value.slice(0, 200) })}
                     maxLength={200}
                     disabled={disabled}
-                    placeholder="Card title"
+                    placeholder={t("workspace.whyLearnEditor.cardTitle")}
                     className="h-9 px-3 text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
                   />
                   <div className="flex gap-2">
@@ -207,7 +208,7 @@ export default function WhyLearnSectionEditor({ value, onChange, disabled, defau
                   rows={3}
                   maxLength={2000}
                   disabled={disabled}
-                  placeholder="Description"
+                  placeholder={t("workspace.whyLearnEditor.description")}
                   className="mt-2 w-full text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white px-3 py-2"
                 />
               </li>

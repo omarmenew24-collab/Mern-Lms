@@ -76,6 +76,15 @@ const manualPaymentOrderSchema = new mongoose.Schema(
 
     submissionHistory: { type: [submissionSnapshotSchema], default: [] },
     auditLog: { type: [auditEntrySchema], default: [] },
+
+    coupon: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Coupon",
+      default: null,
+      index: true,
+    },
+    couponCodeSnapshot: { type: String, default: "" },
+    couponDiscountAmount: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true },
 );

@@ -26,9 +26,9 @@ import {
   ArrowRight,
   RefreshCcw,
   SlidersHorizontal,
-  ShieldAlert,
   Sparkles,
   Landmark,
+  Percent,
 } from "lucide-react";
 import { paths } from "../../config/paths";
 
@@ -40,6 +40,32 @@ const statValues = (d) => [
   d?.totalEnrollments || 0,
   d?.totalPayments ?? 0,
 ];
+
+function pulseTimeAgo(iso, t) {
+  if (!iso) return "";
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return t("notifications.justNow");
+  if (s < 3600) return t("notifications.minutesAgo", { count: Math.floor(s / 60) });
+  if (s < 86400) return t("notifications.hoursAgo", { count: Math.floor(s / 3600) });
+  return new Date(iso).toLocaleDateString();
+}
+
+function pulseEventLink(event) {
+  switch (event?.type) {
+    case "manual_payment":
+      return paths.adminManualPayments;
+    case "refund":
+      return paths.adminRefunds;
+    case "payment":
+      return paths.adminFinance;
+    case "signup":
+      return event.userId ? paths.adminUser(event.userId) : paths.adminUsers;
+    case "enrollment":
+      return event.courseId ? paths.adminCourse(event.courseId) : paths.adminCourses;
+    default:
+      return paths.admin;
+  }
+}
 
 const AdminDashboard = () => {
   const { t, i18n } = useTranslation();
@@ -72,6 +98,11 @@ const AdminDashboard = () => {
   ];
 
   const values = statValues(dashboardstats);
+  const pendingManual = dashboardstats?.pendingManualPayments ?? 0;
+  const pendingRefunds = dashboardstats?.pendingRefunds ?? 0;
+  const recentActivity = dashboardstats?.recentActivity ?? [];
+  const showPulse =
+    pendingManual > 0 || pendingRefunds > 0 || recentActivity.length > 0;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-6">
@@ -90,10 +121,23 @@ const AdminDashboard = () => {
             <button
               type="button"
               onClick={() => navigate(paths.adminManualPayments)}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-sky-200/90 dark:border-sky-800/60 bg-sky-50/90 dark:bg-sky-950/30 px-4 py-2.5 text-sm font-bold text-sky-800 dark:text-sky-200 hover:bg-sky-100/90 dark:hover:bg-sky-900/40 transition-colors"
+              className="relative inline-flex items-center justify-center gap-2 rounded-xl border border-sky-200/90 dark:border-sky-800/60 bg-sky-50/90 dark:bg-sky-950/30 px-4 py-2.5 text-sm font-bold text-sky-800 dark:text-sky-200 hover:bg-sky-100/90 dark:hover:bg-sky-900/40 transition-colors"
             >
               <Landmark className="w-4 h-4" />
               {t("admin.dashboard.manualPayments")}
+              {pendingManual > 0 ? (
+                <span className="absolute -top-1.5 -end-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                  {pendingManual > 9 ? "9+" : pendingManual}
+                </span>
+              ) : null}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(paths.adminCoupons)}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-200/90 dark:border-violet-800/60 bg-violet-50/90 dark:bg-violet-950/30 px-4 py-2.5 text-sm font-bold text-violet-800 dark:text-violet-200 hover:bg-violet-100/90 dark:hover:bg-violet-900/40 transition-colors"
+            >
+              <Percent className="w-4 h-4" />
+              {t("admin.dashboard.coupons")}
             </button>
             <button
               type="button"
@@ -113,6 +157,67 @@ const AdminDashboard = () => {
             </button>
           </div>
         </div>
+
+        {showPulse ? (
+          <div className="rounded-xl border border-gray-200/90 dark:border-gray-800 bg-white/90 dark:bg-gray-900/90 px-4 py-3 sm:px-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="relative flex h-2 w-2 shrink-0" aria-hidden>
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                  </span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    {t("admin.dashboard.recentActivity")}
+                  </span>
+                </div>
+                {recentActivity.length > 0 ? (
+                  <ul className="space-y-1.5">
+                    {recentActivity.map((event) => (
+                      <li key={event.id}>
+                        <Link
+                          to={pulseEventLink(event)}
+                          className="group inline-flex max-w-full flex-wrap items-baseline gap-x-2 text-sm text-gray-700 transition hover:text-brand-600 dark:text-gray-300 dark:hover:text-brand-400"
+                        >
+                          <span className="truncate font-medium group-hover:underline">
+                            {event.label}
+                          </span>
+                          <span className="shrink-0 text-[11px] font-semibold text-gray-400 dark:text-gray-500">
+                            {pulseTimeAgo(event.at, t)}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {t("admin.dashboard.noRecentActivity")}
+                  </p>
+                )}
+              </div>
+              {(pendingManual > 0 || pendingRefunds > 0) && (
+                <div className="flex shrink-0 flex-wrap gap-2 sm:pt-0.5">
+                  {pendingManual > 0 ? (
+                    <Link
+                      to={paths.adminManualPayments}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-sky-50 px-2.5 py-1.5 text-xs font-bold text-sky-800 ring-1 ring-sky-200/80 transition hover:bg-sky-100 dark:bg-sky-950/40 dark:text-sky-200 dark:ring-sky-800/60"
+                    >
+                      {t("admin.dashboard.pendingManualPayments", { count: pendingManual })}
+                    </Link>
+                  ) : null}
+                  {pendingRefunds > 0 ? (
+                    <Link
+                      to={paths.adminRefunds}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-violet-50 px-2.5 py-1.5 text-xs font-bold text-violet-800 ring-1 ring-violet-200/80 transition hover:bg-violet-100 dark:bg-violet-950/40 dark:text-violet-200 dark:ring-violet-800/60"
+                    >
+                      {t("admin.dashboard.pendingRefunds", { count: pendingRefunds })}
+                    </Link>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
@@ -152,21 +257,16 @@ const AdminDashboard = () => {
             </Link>
             <Link
               to={paths.adminRefunds}
-              className="flex items-center justify-between gap-2 rounded-lg border border-gray-200/80 dark:border-gray-800 bg-white/90 dark:bg-gray-900/90 px-3 py-2.5 text-xs font-bold text-gray-800 dark:text-gray-100 shadow-sm hover:border-violet-300/80 dark:hover:border-violet-800/80"
+              className="relative flex items-center justify-between gap-2 rounded-lg border border-gray-200/80 dark:border-gray-800 bg-white/90 dark:bg-gray-900/90 px-3 py-2.5 text-xs font-bold text-gray-800 dark:text-gray-100 shadow-sm hover:border-violet-300/80 dark:hover:border-violet-800/80"
             >
               <span className="flex items-center gap-2 min-w-0">
                 <RefreshCcw className="h-3.5 w-3.5 text-violet-500 shrink-0" aria-hidden />
                 <span className="truncate">{t("admin.dashboard.refundRequests")}</span>
-              </span>
-              <ArrowRight className="h-3.5 w-3.5 text-gray-300 shrink-0 rtl-flip" aria-hidden />
-            </Link>
-            <Link
-              to={paths.adminChargebacks}
-              className="flex items-center justify-between gap-2 rounded-lg border border-gray-200/80 dark:border-gray-800 bg-white/90 dark:bg-gray-900/90 px-3 py-2.5 text-xs font-bold text-gray-800 dark:text-gray-100 shadow-sm hover:border-amber-300/80 dark:hover:border-amber-800/80"
-            >
-              <span className="flex items-center gap-2 min-w-0">
-                <ShieldAlert className="h-3.5 w-3.5 text-amber-600 shrink-0" aria-hidden />
-                <span className="truncate">{t("admin.dashboard.chargebacks")}</span>
+                {pendingRefunds > 0 ? (
+                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                    {pendingRefunds > 9 ? "9+" : pendingRefunds}
+                  </span>
+                ) : null}
               </span>
               <ArrowRight className="h-3.5 w-3.5 text-gray-300 shrink-0 rtl-flip" aria-hidden />
             </Link>

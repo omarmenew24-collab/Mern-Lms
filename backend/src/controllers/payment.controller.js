@@ -8,7 +8,13 @@ import {
 } from "../services/notification.service.js";
 
 import Stripe from "stripe";
+import mongoose from "mongoose";
 import { computeEffectivePrice, MIN_CHECKOUT_PRICE_USD } from "../lib/coursePricing.js";
+import {
+  normalizeCouponCode,
+  validateCouponForCheckout,
+} from "../lib/couponCheckout.js";
+import { recordSuccessfulCouponRedemption } from "../services/couponRedemption.service.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -33,6 +39,13 @@ async function isStudentRole(userId) {
  */
 export async function applySuccessfulPaymentIntent(paymentIntent) {
   const { studentId, courseId } = paymentIntent.metadata || {};
+  const couponIdRaw = paymentIntent.metadata?.couponId;
+  const couponCodeSnap = paymentIntent.metadata?.couponCode || "";
+  const couponDiscountRaw = paymentIntent.metadata?.couponDiscountAmount;
+  const couponDiscountAmount = Math.max(
+    0,
+    Number(couponDiscountRaw) || 0,
+  );
   if (!studentId || !courseId) {
     return { ok: false, reason: "missing_metadata" };
   }
@@ -45,6 +58,13 @@ export async function applySuccessfulPaymentIntent(paymentIntent) {
   );
   if (!courseIsOpenForEnrollment(courseForPi)) {
     return { ok: false, reason: "course_not_available" };
+  }
+
+  const paidAt = new Date((paymentIntent.created || 0) * 1000);
+
+  let couponRef = null;
+  if (couponIdRaw && mongoose.isValidObjectId(couponIdRaw)) {
+    couponRef = new mongoose.Types.ObjectId(couponIdRaw);
   }
 
   try {
@@ -66,7 +86,10 @@ export async function applySuccessfulPaymentIntent(paymentIntent) {
           currency: (paymentIntent.currency || "usd").toLowerCase(),
           status: "succeeded",
           stripeChargeId: chargeId,
-          paidAt: new Date((paymentIntent.created || 0) * 1000),
+          paidAt,
+          coupon: couponRef,
+          couponCodeSnapshot: couponCodeSnap,
+          couponDiscountAmount,
         },
       },
       { upsert: true, new: true },
@@ -87,6 +110,7 @@ export async function applySuccessfulPaymentIntent(paymentIntent) {
         student: studentId,
         course: courseId,
         status: "active",
+        refundPolicyAcceptedAt: paidAt,
       });
     }
   } catch (enrErr) {
@@ -95,6 +119,16 @@ export async function applySuccessfulPaymentIntent(paymentIntent) {
   }
 
   notifySafe(() => onCourseEnrolledFromPayment({ studentId, courseId }));
+
+  if (couponRef) {
+    await recordSuccessfulCouponRedemption({
+      redemptionKey: paymentIntent.id,
+      studentId,
+      courseId,
+      couponId: couponRef,
+      discountAmount: couponDiscountAmount,
+    });
+  }
 
   return { ok: true };
 }
@@ -121,6 +155,8 @@ export async function finalizeManualPaymentEnrollment(order) {
 
   const existingPay = await Payment.findOne({ stripePaymentIntentId: syntheticId }).lean();
   if (existingPay) {
+    const policyAt =
+      existingPay?.paidAt != null ? new Date(existingPay.paidAt) : new Date();
     const existingEnrollment = await Enrollment.findOne({
       student: studentId,
       course: courseId,
@@ -131,11 +167,14 @@ export async function finalizeManualPaymentEnrollment(order) {
         student: studentId,
         course: courseId,
         status: "active",
+        refundPolicyAcceptedAt: policyAt,
       });
       notifySafe(() => onCourseEnrolledFromPayment({ studentId, courseId }));
     }
     return { ok: true, idempotent: true };
   }
+
+  const paidNow = new Date();
 
   try {
     await Payment.create({
@@ -146,10 +185,13 @@ export async function finalizeManualPaymentEnrollment(order) {
       status: "succeeded",
       stripePaymentIntentId: syntheticId,
       stripeChargeId: null,
-      paidAt: new Date(),
+      paidAt: paidNow,
       provider: "manual",
       manualOrder: orderId,
       clientIp: null,
+      coupon: order.coupon && mongoose.isValidObjectId(order.coupon) ? order.coupon : null,
+      couponCodeSnapshot: typeof order.couponCodeSnapshot === "string" ? order.couponCodeSnapshot : "",
+      couponDiscountAmount: Math.max(0, Number(order.couponDiscountAmount) || 0),
     });
   } catch (e) {
     if (e?.code === 11000) {
@@ -161,10 +203,12 @@ export async function finalizeManualPaymentEnrollment(order) {
           status: "active",
         });
         if (!existingEnrollment) {
+          const payAt = dup?.paidAt != null ? new Date(dup.paidAt) : new Date();
           await Enrollment.create({
             student: studentId,
             course: courseId,
             status: "active",
+            refundPolicyAcceptedAt: payAt,
           });
           notifySafe(() => onCourseEnrolledFromPayment({ studentId, courseId }));
         }
@@ -186,6 +230,7 @@ export async function finalizeManualPaymentEnrollment(order) {
         student: studentId,
         course: courseId,
         status: "active",
+        refundPolicyAcceptedAt: paidNow,
       });
     }
   } catch (enrErr) {
@@ -194,6 +239,18 @@ export async function finalizeManualPaymentEnrollment(order) {
   }
 
   notifySafe(() => onCourseEnrolledFromPayment({ studentId, courseId }));
+
+  const orderCouponId = order.coupon?._id ?? order.coupon;
+  if (orderCouponId && mongoose.isValidObjectId(orderCouponId)) {
+    await recordSuccessfulCouponRedemption({
+      redemptionKey: syntheticId,
+      studentId,
+      courseId,
+      couponId: orderCouponId,
+      discountAmount: Math.max(0, Number(order.couponDiscountAmount) || 0),
+    });
+  }
+
   return { ok: true };
 }
 
@@ -255,7 +312,7 @@ export const paymentIntent = async (req, res) => {
       });
     }
 
-    const { courseId } = req.body;
+    const { courseId, couponCode } = req.body || {};
 
     if (!courseId || !studentId) {
       return res.status(400).json({ message: "Missing required IDs" });
@@ -285,11 +342,39 @@ export const paymentIntent = async (req, res) => {
 
     const coursePlain = course.toObject ? course.toObject() : course;
     const { effectivePrice } = computeEffectivePrice(coursePlain);
+    if (!Number.isFinite(effectivePrice) || effectivePrice === 0) {
+      return res.status(400).json({
+        message: "This course is free or has no charge. Use the free enrollment button instead of card payment.",
+        code: "FREE_COURSE",
+      });
+    }
     const minCents = Math.round(MIN_CHECKOUT_PRICE_USD * 100);
-    const amount = Math.round(Number(effectivePrice) * 100);
+
+    let chargeMajor = effectivePrice;
+    let couponMeta = {};
+    const trimmedCoupon = normalizeCouponCode(couponCode);
+    if (trimmedCoupon) {
+      const v = await validateCouponForCheckout({
+        code: trimmedCoupon,
+        courseId,
+        studentId,
+      });
+      if (!v.ok) {
+        return res.status(400).json({ message: v.message });
+      }
+      chargeMajor = v.finalPrice;
+      couponMeta = {
+        couponId: String(v.coupon._id),
+        couponCode: String(v.coupon.code || trimmedCoupon),
+        couponDiscountAmount: String(v.discountAmount ?? 0),
+      };
+    }
+
+    const amount = Math.round(Number(chargeMajor) * 100);
     if (!Number.isFinite(amount) || amount < minCents) {
       return res.status(400).json({
         message: "This course is not available for card checkout at the current price.",
+        code: "INVALID_CHECKOUT_AMOUNT",
       });
     }
 
@@ -300,13 +385,129 @@ export const paymentIntent = async (req, res) => {
       metadata: {
         studentId: String(studentId),
         courseId: String(courseId),
+        ...couponMeta,
       },
     });
 
-    res.json({ clientSecret: paymentIntent.client_secret });
+    res.json({
+      clientSecret: paymentIntent.client_secret,
+      amountUsd: chargeMajor,
+      couponApplied: Boolean(trimmedCoupon),
+    });
   } catch (error) {
     console.error("paymentIntent:", error.type, error.message);
     res.status(500).json({ message: error.message });
+  }
+};
+
+/** Student self-serve: enroll when admin marked the course as free ($0, no Stripe/manual). */
+export const enrollFreeCourse = async (req, res) => {
+  try {
+    const studentId = req.user._id;
+    if (req.user?.role !== "student") {
+      return res.status(403).json({
+        message: "Only student accounts can enroll in courses",
+      });
+    }
+
+    const { courseId } = req.body || {};
+    if (!courseId) {
+      return res.status(400).json({ message: "courseId is required" });
+    }
+
+    const course = await Course.findById(courseId)
+      .select("isDeleted isPublished status isFree price promotion")
+      .lean();
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+    if (!courseIsOpenForEnrollment(course)) {
+      return res.status(400).json({
+        message: "This course is not available for enrollment",
+      });
+    }
+    if (course.isFree !== true) {
+      return res.status(400).json({ message: "This course is not marked as free." });
+    }
+
+    const { effectivePrice } = computeEffectivePrice(course);
+    if (!Number.isFinite(effectivePrice) || effectivePrice !== 0) {
+      return res.status(400).json({ message: "This course is not free right now." });
+    }
+
+    const alreadyEnrolled = await Enrollment.findOne({
+      student: studentId,
+      course: courseId,
+      status: "active",
+    });
+    if (alreadyEnrolled) {
+      return res.status(200).json({ enrolled: true, alreadyEnrolled: true });
+    }
+
+    const syntheticId = `free_${courseId}_${studentId}`;
+    const paidNow = new Date();
+
+    try {
+      await Payment.create({
+        student: studentId,
+        course: courseId,
+        amount: 0,
+        currency: "usd",
+        status: "succeeded",
+        stripePaymentIntentId: syntheticId,
+        stripeChargeId: null,
+        paidAt: paidNow,
+        provider: "free",
+        manualOrder: null,
+        clientIp: null,
+        coupon: null,
+        couponCodeSnapshot: "",
+        couponDiscountAmount: 0,
+      });
+    } catch (e) {
+      if (e?.code === 11000) {
+        const dup = await Payment.findOne({ stripePaymentIntentId: syntheticId }).lean();
+        if (dup) {
+          const existingEnrollment = await Enrollment.findOne({
+            student: studentId,
+            course: courseId,
+            status: "active",
+          });
+          if (!existingEnrollment) {
+            const payAt = dup?.paidAt != null ? new Date(dup.paidAt) : new Date();
+            await Enrollment.create({
+              student: studentId,
+              course: courseId,
+              status: "active",
+              refundPolicyAcceptedAt: payAt,
+            });
+            notifySafe(() => onCourseEnrolledFromPayment({ studentId, courseId }));
+          }
+          return res.status(200).json({ enrolled: true });
+        }
+      }
+      console.error("enrollFreeCourse payment error:", e.message);
+      return res.status(500).json({ message: e.message || "Could not record enrollment" });
+    }
+
+    try {
+      await Enrollment.create({
+        student: studentId,
+        course: courseId,
+        status: "active",
+        refundPolicyAcceptedAt: paidNow,
+      });
+    } catch (enrErr) {
+      console.error("enrollFreeCourse enrollment error:", enrErr.message);
+      return res.status(500).json({ message: enrErr.message || "Could not enroll" });
+    }
+
+    notifySafe(() => onCourseEnrolledFromPayment({ studentId, courseId }));
+
+    return res.status(200).json({ enrolled: true });
+  } catch (error) {
+    console.error("enrollFreeCourse:", error);
+    return res.status(500).json({ message: error.message || "Server error" });
   }
 };
 
@@ -402,8 +603,18 @@ export const checkenrollment = async (req, res) => {
     const { courseId, studentId } = req.params;
     const isAdmin = req.user?.role === "admin";
     const isSelf = String(req.user?._id) === String(studentId);
+
+    if (!isAdmin && req.user?.role !== "student") {
+      return res.status(403).json({ enrolled: false, message: "Forbidden" });
+    }
+
     if (!isAdmin && !isSelf) {
       return res.status(403).json({ enrolled: false, message: "Forbidden" });
+    }
+
+    const targetUser = await User.findById(studentId).select("role").lean();
+    if (!targetUser || targetUser.role !== "student") {
+      return res.json({ enrolled: false });
     }
 
     const enrollment = await Enrollment.findOne({

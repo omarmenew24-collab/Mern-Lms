@@ -1,6 +1,7 @@
 import express from "express";
 import {
   paymentIntent,
+  enrollFreeCourse,
   enrollatcourse,
   bulkEnrollAtCourse,
   checkenrollment,
@@ -27,6 +28,13 @@ router.post(
   paymentWriteLimiter,
   protectRoute,
   syncPaymentIntent,
+);
+
+router.post(
+  "/enroll-free",
+  paymentWriteLimiter,
+  protectRoute,
+  enrollFreeCourse,
 );
 
 

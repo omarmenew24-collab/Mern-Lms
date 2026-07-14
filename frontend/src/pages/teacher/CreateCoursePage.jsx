@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, ImagePlus } from "lucide-react";
 import { useCreateCourse, useGetTeachersList, useGetCourseCategories } from "../../api/course";
 import SavedCourseCategoryChips from "../../components/course/SavedCourseCategoryChips";
@@ -9,6 +10,7 @@ import { paths } from "../../config/paths";
 import useUserStore from "../../store/userstore";
 
 export default function CreateCourseForm() {
+  const { t: tr } = useTranslation();
   const user = useUserStore((s) => s.user);
   const isTeacherCreator = user?.role === "teacher";
 
@@ -66,10 +68,10 @@ export default function CreateCourseForm() {
     e.preventDefault();
     createmycourse({ ...form, image: imageFile })
       .then(() => {
-        toast.success("Course created!");
+        toast.success(tr("workspace.createCourse.created"));
         navigate(paths.teacher);
       })
-      .catch(() => toast.error("Failed to create course"));
+      .catch(() => toast.error(tr("workspace.createCourse.createFailed")));
   }
 
   useEffect(() => () => clearTimeout(debounceRef.current), []);
@@ -92,26 +94,30 @@ export default function CreateCourseForm() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10 px-4">
       <div className="max-w-lg mx-auto">
         <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white mb-6 transition-colors">
-          <ArrowLeft className="w-4 h-4 rtl-flip" /> Back
+          <ArrowLeft className="w-4 h-4 rtl-flip" /> {tr("commonActions.back")}
         </button>
 
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
           <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-800">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Create course</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Fill in the details to publish a new course.</p>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">{tr("workspace.createCourse.heading")}</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {tr("workspace.createCourse.introPrefix")}
+              <span className="font-medium">{tr("workspace.courseEdit.courseSettings")}</span>
+              {tr("workspace.createCourse.introSuffix")}
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
             {/* Image */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Course image</label>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">{tr("workspace.courseEdit.courseImage")}</label>
               <label className="cursor-pointer block">
                 {imagePreview ? (
-                  <img src={imagePreview} alt="Preview" className="w-full h-40 rounded-lg object-cover border border-gray-200 dark:border-gray-700" />
+                  <img src={imagePreview} alt={tr("workspace.courseEdit.preview")} className="w-full h-40 rounded-lg object-cover border border-gray-200 dark:border-gray-700" />
                 ) : (
                   <div className="w-full h-40 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 flex flex-col items-center justify-center gap-2 hover:border-brand-500 transition-colors">
                     <ImagePlus className="w-6 h-6 text-gray-400" />
-                    <span className="text-xs text-gray-400">Click to upload</span>
+                    <span className="text-xs text-gray-400">{tr("workspace.createCourse.clickToUpload")}</span>
                   </div>
                 )}
                 <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
@@ -120,24 +126,24 @@ export default function CreateCourseForm() {
 
             {/* Title */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Title</label>
-              <input type="text" name="title" value={form.title} onChange={handleChange} placeholder="Course title" className={inputClass} required />
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">{tr("workspace.courseEdit.title")}</label>
+              <input type="text" name="title" value={form.title} onChange={handleChange} placeholder={tr("workspace.createCourse.titlePlaceholder")} className={inputClass} required />
             </div>
 
             {/* Teacher — fixed to self for teachers; admins search and pick */}
             <div className="relative">
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Teacher</label>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">{tr("workspace.createCourse.teacher")}</label>
               <input
                 type="text"
                 name="teacher"
                 value={form.teacher}
                 onChange={handleChange}
-                placeholder={isTeacherCreator ? "Your account" : "Search teacher"}
+                placeholder={isTeacherCreator ? tr("workspace.createCourse.yourAccount") : tr("workspace.createCourse.searchTeacher")}
                 className={teacherInputClass}
                 required
                 autoComplete="off"
                 readOnly={isTeacherCreator}
-                title={isTeacherCreator ? "Course will be created under your teacher account" : undefined}
+                title={isTeacherCreator ? tr("workspace.createCourse.underYourAccount") : undefined}
               />
               {!isTeacherCreator && showDropdown && teacherResults.length > 0 && (
                 <ul className="absolute z-10 w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg mt-1 max-h-44 overflow-y-auto">
@@ -159,12 +165,12 @@ export default function CreateCourseForm() {
               idPrefix="create-course"
               required
               disabled={!categoryQueryTeacherId && !isTeacherCreator}
-              placeholder={!categoryQueryTeacherId && !isTeacherCreator ? "Pick a teacher first" : "Type the exact category for this course"}
+              placeholder={!categoryQueryTeacherId && !isTeacherCreator ? tr("workspace.createCourse.pickTeacherFirst") : tr("workspace.createCourse.categoryPlaceholder")}
               helpText={
                 <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-500">
-                  Pick from the list (site defaults, past labels, and this teacher’s categories) or use{" "}
-                  <span className="font-medium">Other</span> and type your own. Only an admin can change the global
-                  list (Admin → settings).
+                  {tr("workspace.createCourse.helpPrefix")}
+                  <span className="font-medium">{tr("workspace.courseEdit.helpOther")}</span>
+                  {tr("workspace.createCourse.helpSuffix")}
                 </p>
               }
             >
@@ -176,12 +182,12 @@ export default function CreateCourseForm() {
 
             {/* Description */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Description</label>
-              <textarea name="description" value={form.description} onChange={handleChange} rows="3" placeholder="Brief description of the course" className={`${inputClass} h-auto py-2`} required />
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">{tr("workspace.courseEdit.description")}</label>
+              <textarea name="description" value={form.description} onChange={handleChange} rows="3" placeholder={tr("workspace.createCourse.descPlaceholder")} className={`${inputClass} h-auto py-2`} required />
             </div>
 
             <button type="submit" className="w-full h-11 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition-colors">
-              Create course
+              {tr("workspace.createCourse.heading")}
             </button>
           </form>
         </div>

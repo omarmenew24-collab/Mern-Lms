@@ -1,4 +1,5 @@
 import { Plus, Trash2, LayoutList } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const inputClass =
   "w-full h-10 px-3 text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-shadow";
@@ -12,9 +13,11 @@ function LineListEditor({
   hint,
   lines,
   onChange,
-  placeholder = "Add a line…",
+  placeholder,
   disabled,
 }) {
+  const { t } = useTranslation();
+  const resolvedPlaceholder = placeholder || t("workspace.catalogForm.addLinePlaceholder");
   const add = () => {
     if (lines.length >= MAX_LINES) return;
     onChange([...lines, ""]);
@@ -36,7 +39,7 @@ function LineListEditor({
             <textarea
               value={line}
               onChange={(e) => setLine(i, e.target.value)}
-              placeholder={placeholder}
+              placeholder={resolvedPlaceholder}
               rows={2}
               disabled={disabled}
               className={`${textareaClass} flex-1 resize-y min-h-[2.75rem]`}
@@ -46,7 +49,7 @@ function LineListEditor({
               onClick={() => remove(i)}
               disabled={disabled}
               className="mt-1 p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-40"
-              aria-label="Remove line"
+              aria-label={t("workspace.catalogForm.removeLine")}
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -59,7 +62,7 @@ function LineListEditor({
             disabled={disabled}
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline disabled:opacity-50"
           >
-            <Plus className="w-3.5 h-3.5" /> Add line
+            <Plus className="w-3.5 h-3.5" /> {t("workspace.catalogForm.addLine")}
           </button>
         )}
       </div>
@@ -72,6 +75,7 @@ function LineListEditor({
  * Matches backend: learningOutcomes, requirements, includesExtras, courseLanguage, purchaseNote, toggles.
  */
 export default function CourseCatalogSectionsForm({ value, onChange, disabled, compact = false }) {
+  const { t } = useTranslation();
   const patch = (partial) => onChange({ ...value, ...partial });
 
   return (
@@ -80,41 +84,40 @@ export default function CourseCatalogSectionsForm({ value, onChange, disabled, c
         <>
           <div className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-800 pb-2">
             <LayoutList className="w-4 h-4 text-brand-500" />
-            Public course page
+            {t("workspace.catalogForm.publicCoursePage")}
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">
-            Shown on the published course page. Leave lists empty to use smart defaults (category, lecture counts,
-            etc.).
+            {t("workspace.catalogForm.intro")}
           </p>
         </>
       )}
       {compact && (
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          Leave lists empty to use smart defaults (category, lecture counts, etc.).
+          {t("workspace.catalogForm.introCompact")}
         </p>
       )}
 
       <LineListEditor
-        label="What you&apos;ll learn"
-        hint={`Up to ${MAX_LINES} bullet points. Empty → auto-generated bullets.`}
+        label={t("workspace.catalogForm.learnLabel")}
+        hint={t("workspace.catalogForm.learnHint", { max: MAX_LINES })}
         lines={value.learningOutcomes || []}
         onChange={(learningOutcomes) => patch({ learningOutcomes })}
         disabled={disabled}
-        placeholder="e.g. Build a full-stack app with React and Node"
+        placeholder={t("workspace.catalogForm.learnPlaceholder")}
       />
 
       <LineListEditor
-        label="Requirements"
-        hint="Empty → generic prerequisites based on category."
+        label={t("workspace.catalogForm.reqLabel")}
+        hint={t("workspace.catalogForm.reqHint")}
         lines={value.requirements || []}
         onChange={(requirements) => patch({ requirements })}
         disabled={disabled}
-        placeholder="e.g. Basic JavaScript"
+        placeholder={t("workspace.catalogForm.reqPlaceholder")}
       />
 
       <LineListEditor
-        label="Extra &quot;includes&quot; lines"
-        hint="Optional. Shown after lecture duration and assignment counts. Use for perks (e.g. downloadable resources)."
+        label={t("workspace.catalogForm.includesLabel")}
+        hint={t("workspace.catalogForm.includesHint")}
         lines={value.includesExtras || []}
         onChange={(includesExtras) => patch({ includesExtras })}
         disabled={disabled}
@@ -123,7 +126,7 @@ export default function CourseCatalogSectionsForm({ value, onChange, disabled, c
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-            Course language
+            {t("workspace.catalogForm.courseLanguage")}
           </label>
           <input
             type="text"
@@ -131,12 +134,12 @@ export default function CourseCatalogSectionsForm({ value, onChange, disabled, c
             onChange={(e) => patch({ courseLanguage: e.target.value })}
             disabled={disabled}
             className={inputClass}
-            placeholder="English"
+            placeholder={t("workspace.catalogForm.courseLanguagePlaceholder")}
           />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-            Sidebar note (under price)
+            {t("workspace.catalogForm.sidebarNote")}
           </label>
           <input
             type="text"
@@ -144,10 +147,10 @@ export default function CourseCatalogSectionsForm({ value, onChange, disabled, c
             onChange={(e) => patch({ purchaseNote: e.target.value })}
             disabled={disabled}
             className={inputClass}
-            placeholder="e.g. 30-day money-back guarantee"
+            placeholder={t("workspace.catalogForm.sidebarPlaceholder")}
           />
           <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-500">
-            Empty uses the default guarantee line.
+            {t("workspace.catalogForm.sidebarHint")}
           </p>
         </div>
       </div>
@@ -162,7 +165,7 @@ export default function CourseCatalogSectionsForm({ value, onChange, disabled, c
             className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
           />
           <span className="text-sm text-gray-700 dark:text-gray-300">
-            Show &quot;Certificate of completion&quot;
+            {t("workspace.catalogForm.showCertificate")}
           </span>
         </label>
         <label className="inline-flex items-center gap-2 cursor-pointer select-none">
@@ -174,7 +177,7 @@ export default function CourseCatalogSectionsForm({ value, onChange, disabled, c
             className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
           />
           <span className="text-sm text-gray-700 dark:text-gray-300">
-            Show &quot;Full lifetime access&quot;
+            {t("workspace.catalogForm.showLifetime")}
           </span>
         </label>
       </div>

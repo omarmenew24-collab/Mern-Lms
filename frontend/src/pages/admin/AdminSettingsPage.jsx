@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
   Megaphone,
@@ -21,12 +22,14 @@ import { paths } from "../../config/paths";
 import AboutPageBlocksEditor from "../../components/admin/AboutPageBlocksEditor";
 import WhyLearnSectionEditor from "../../components/admin/WhyLearnSectionEditor";
 import SiteBrandingEditor from "../../components/admin/SiteBrandingEditor";
+import CertificateBrandingEditor from "../../components/admin/CertificateBrandingEditor";
 
 /**
  * Admin workspace: same account shell as the rest of the app, with admin section links (UI only).
  * Route is wrapped with RequireAdmin in App.jsx.
  */
 export default function AdminSettingsPage() {
+  const { t: tr } = useTranslation();
   const user = useUserStore((s) => s.user);
   const { siteSettings, isLoading: isSiteLoading } = useGetSiteSettings();
   const { patchSiteSettings, isPending: isSiteSaving } = usePatchSiteSettings();
@@ -112,46 +115,46 @@ export default function AdminSettingsPage() {
     if (typeof window === "undefined" || window.location.hash !== "#in-app-announcements") {
       return;
     }
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       document.getElementById("in-app-announcements")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || window.location.hash !== "#public-about") {
       return;
     }
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       document.getElementById("public-about")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || window.location.hash !== "#why-learn-home") {
       return;
     }
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       document.getElementById("why-learn-home")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || window.location.hash !== "#site-branding") {
       return;
     }
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       document.getElementById("site-branding")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
     <AccountSettingsLayout
-      title="Admin workspace"
-      subtitle="Site name & hero, About page, home Why learn, categories, home banner, notifications, comments, and ratings."
+      title={tr("workspace.adminSettings.title")}
+      subtitle={tr("workspace.adminSettings.subtitle")}
       navItems={getAccountNavItems(user)}
     >
       <div className="space-y-6">
@@ -161,15 +164,22 @@ export default function AdminSettingsPage() {
         >
           <AlertCircle className="w-5 h-5 shrink-0 text-amber-500 dark:text-amber-400 mt-0.5" />
           <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-            <span className="font-medium text-gray-900 dark:text-white">What this page does: </span>
-            Your name and photo, the public             <span className="font-medium">About</span> page, the home &quot;Why learn&quot; section, the global course
-            category list, public home banner, in-app notifications, and comments. Per-course options: each course&apos;s{" "}
-            <span className="font-medium">Settings</span> tab. User and sales: <span className="font-medium">Users</span> and{" "}
-            <span className="font-medium">Courses</span>.
+            <span className="font-medium text-gray-900 dark:text-white">{tr("workspace.adminSettings.whatLabel")}</span>
+            {tr("workspace.adminSettings.whatBody1")}
+            <span className="font-medium">{tr("workspace.adminSettings.aboutBold")}</span>
+            {tr("workspace.adminSettings.whatBody2")}
+            <span className="font-medium">{tr("workspace.adminSettings.settingsBold")}</span>
+            {tr("workspace.adminSettings.whatBody3")}
+            <span className="font-medium">{tr("workspace.adminSettings.usersBold")}</span>
+            {tr("workspace.adminSettings.whatAnd")}
+            <span className="font-medium">{tr("workspace.adminSettings.coursesBold")}</span>
+            {tr("workspace.adminSettings.whatEnd")}
           </p>
         </div>
 
         <SiteBrandingEditor />
+
+        <CertificateBrandingEditor />
 
         <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
           <div className="flex items-start gap-3">
@@ -177,14 +187,14 @@ export default function AdminSettingsPage() {
               <MessageCircleOff className="w-5 h-5 text-violet-600 dark:text-violet-400" />
             </div>
             <div className="min-w-0 flex-1 space-y-2">
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white">All courses — comment posting</h2>
+              <h2 className="text-sm font-bold text-gray-900 dark:text-white">{tr("workspace.adminSettings.commentsHeading")}</h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                When enabled, new posts and replies are limited to course instructors and admins on
-                <strong className="font-medium text-gray-700 dark:text-gray-300"> every </strong>
-                course. Individual courses can still be tightened further in each course&apos;s admin settings.
+                {tr("workspace.adminSettings.commentsDesc1")}
+                <strong className="font-medium text-gray-700 dark:text-gray-300">{tr("workspace.adminSettings.commentsEvery")}</strong>
+                {tr("workspace.adminSettings.commentsDesc2")}
               </p>
               {isSiteLoading ? (
-                <p className="text-xs text-gray-400">Loading…</p>
+                <p className="text-xs text-gray-400">{tr("workspace.adminSettings.loading")}</p>
               ) : (
                 <label className="flex items-start gap-2.5 text-sm text-gray-800 dark:text-gray-200 cursor-pointer">
                   <input
@@ -202,7 +212,7 @@ export default function AdminSettingsPage() {
                     }}
                   />
                   <span>
-                    Block comment posting site-wide (instructors and admins can still post and reply)
+                    {tr("workspace.adminSettings.commentsToggle")}
                   </span>
                 </label>
               )}
@@ -216,13 +226,12 @@ export default function AdminSettingsPage() {
               <StarOff className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             </div>
             <div className="min-w-0 flex-1 space-y-2">
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white">All courses — ratings</h2>
+              <h2 className="text-sm font-bold text-gray-900 dark:text-white">{tr("workspace.adminSettings.ratingsHeading")}</h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                When enabled, learners cannot submit or update star ratings on any course.
-                Per-course overrides are available in each course&apos;s admin settings.
+                {tr("workspace.adminSettings.ratingsDesc")}
               </p>
               {isSiteLoading ? (
-                <p className="text-xs text-gray-400">Loading…</p>
+                <p className="text-xs text-gray-400">{tr("workspace.adminSettings.loading")}</p>
               ) : (
                 <label className="flex items-start gap-2.5 text-sm text-gray-800 dark:text-gray-200 cursor-pointer">
                   <input
@@ -239,7 +248,7 @@ export default function AdminSettingsPage() {
                       }
                     }}
                   />
-                  <span>Block course ratings site-wide</span>
+                  <span>{tr("workspace.adminSettings.ratingsToggle")}</span>
                 </label>
               )}
             </div>
@@ -252,18 +261,16 @@ export default function AdminSettingsPage() {
               <Layers className="w-5 h-5 text-sky-600 dark:text-sky-400" />
             </div>
             <div className="min-w-0 flex-1 space-y-2">
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white">Default course categories</h2>
+              <h2 className="text-sm font-bold text-gray-900 dark:text-white">{tr("workspace.adminSettings.categoriesHeading")}</h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                New installs start with a built-in list. Only you (admin) can add or remove names here. Teachers and
-                other admins use this list when they create a course, or they can pick <span className="font-medium">Other</span> and
-                type anything. This does not rename existing courses.
+                {tr("workspace.adminSettings.categoriesDesc1")}<span className="font-medium">{tr("workspace.adminSettings.otherBold")}</span>{tr("workspace.adminSettings.categoriesDesc2")}
               </p>
               {isSiteLoading ? (
-                <p className="text-xs text-gray-400">Loading…</p>
+                <p className="text-xs text-gray-400">{tr("workspace.adminSettings.loading")}</p>
               ) : (
                 <>
                   {platformList.length === 0 ? (
-                    <p className="text-xs text-gray-500">No global categories yet. Add the names you want everyone to see when they create a course.</p>
+                    <p className="text-xs text-gray-500">{tr("workspace.adminSettings.noCategories")}</p>
                   ) : (
                     <ul className="flex flex-wrap gap-1.5">
                       {platformList.map((name) => (
@@ -277,8 +284,8 @@ export default function AdminSettingsPage() {
                             disabled={isSiteSaving}
                             onClick={() => removePlatformCategory(name)}
                             className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-950/50 text-sky-800 dark:text-sky-200 disabled:opacity-40"
-                            aria-label={`Remove ${name}`}
-                            title="Remove this suggestion"
+                            aria-label={tr("workspace.adminSettings.removeName", { name })}
+                            title={tr("workspace.adminSettings.removeSuggestion")}
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -293,7 +300,7 @@ export default function AdminSettingsPage() {
                       onChange={(e) => setPlatformDraft(e.target.value.slice(0, 80))}
                       disabled={isSiteSaving}
                       maxLength={80}
-                      placeholder="Add a new category for everyone"
+                      placeholder={tr("workspace.adminSettings.addCategoryPlaceholder")}
                       className="min-w-[12rem] flex-1 h-9 px-3 text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
@@ -308,12 +315,12 @@ export default function AdminSettingsPage() {
                       onClick={addPlatformCategory}
                       className="h-9 px-3 rounded-lg text-xs font-bold bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50"
                     >
-                      Add
+                      {tr("workspace.adminSettings.add")}
                     </button>
                   </div>
                   {platformList.length > 0 ? (
                     <p className="text-[10px] text-gray-500">
-                      {platformList.length}/100 suggestions
+                      {tr("workspace.adminSettings.suggestionsCount", { n: platformList.length })}
                     </p>
                   ) : null}
                 </>
@@ -332,27 +339,25 @@ export default function AdminSettingsPage() {
             </div>
             <div className="min-w-0 flex-1 space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-sm font-bold text-gray-900 dark:text-white">Public About page</h2>
+                <h2 className="text-sm font-bold text-gray-900 dark:text-white">{tr("workspace.adminSettings.aboutHeading")}</h2>
                 <Link
                   to={paths.about}
                   className="inline-flex items-center gap-1 text-xs font-medium text-violet-600 dark:text-violet-400 hover:underline"
                 >
-                  Open page
+                  {tr("workspace.adminSettings.openPage")}
                   <ExternalLink className="w-3.5 h-3.5" />
                 </Link>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                <strong>Admin only</strong> — only admins can change this (this screen is protected). Public URL:{" "}
-                <span className="font-mono text-gray-600 dark:text-gray-300">/about</span>. Build the page with sections,
-                full-width images, and image+text columns. If you don&apos;t add any sections, the optional plain text below
-                or the platform default (rich layout) is used.
+                <strong>{tr("workspace.adminSettings.adminOnly")}</strong>{tr("workspace.adminSettings.aboutDesc1")}
+                <span className="font-mono text-gray-600 dark:text-gray-300">/about</span>{tr("workspace.adminSettings.aboutDesc2")}
               </p>
               {isSiteLoading ? (
-                <p className="text-xs text-gray-400">Loading…</p>
+                <p className="text-xs text-gray-400">{tr("workspace.adminSettings.loading")}</p>
               ) : (
                 <>
                   <div>
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Page title</label>
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">{tr("workspace.adminSettings.pageTitle")}</label>
                     <input
                       type="text"
                       value={aboutTitle}
@@ -365,9 +370,9 @@ export default function AdminSettingsPage() {
                     <p className="text-[10px] text-gray-400 text-end mt-0.5">{aboutTitle.length}/200</p>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Page sections (recommended)</label>
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">{tr("workspace.adminSettings.pageSections")}</label>
                     <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 mb-2">
-                      Headings, paragraphs, bullet cards, full-width images, and side-by-side image+text. Reorder with arrows.
+                      {tr("workspace.adminSettings.pageSectionsDesc")}
                     </p>
                     <AboutPageBlocksEditor
                       value={aboutBlocks}
@@ -378,10 +383,10 @@ export default function AdminSettingsPage() {
                   </div>
                   <details className="rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/30 p-3">
                     <summary className="text-xs font-semibold text-gray-700 dark:text-gray-200 cursor-pointer">
-                      Plain text fallback (only if sections are empty)
+                      {tr("workspace.adminSettings.plainFallback")}
                     </summary>
                     <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2 mb-2">
-                      Ignored while you have one or more sections saved above. Blank lines = new paragraphs.
+                      {tr("workspace.adminSettings.plainFallbackDesc")}
                     </p>
                     <textarea
                       value={aboutBody}
@@ -410,7 +415,7 @@ export default function AdminSettingsPage() {
                       }}
                       className="px-4 py-1.5 rounded-lg text-xs font-bold bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
                     >
-                      Save About page
+                      {tr("workspace.adminSettings.saveAbout")}
                     </button>
                     <button
                       type="button"
@@ -431,7 +436,7 @@ export default function AdminSettingsPage() {
                       }}
                       className="px-4 py-1.5 rounded-lg text-xs font-semibold border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
                     >
-                      Reset to platform default
+                      {tr("workspace.adminSettings.resetDefault")}
                     </button>
                   </div>
                 </>
@@ -450,22 +455,20 @@ export default function AdminSettingsPage() {
             </div>
             <div className="min-w-0 flex-1 space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-sm font-bold text-gray-900 dark:text-white">Home — Why learn</h2>
+                <h2 className="text-sm font-bold text-gray-900 dark:text-white">{tr("workspace.adminSettings.whyLearnHeading")}</h2>
                 <Link
                   to={paths.home}
                   className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
                 >
-                  Open home
+                  {tr("workspace.adminSettings.openHome")}
                   <ExternalLink className="w-3.5 h-3.5" />
                 </Link>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                <strong>Admin only</strong> — the three feature cards and headings under the fold on the public home page.
-                Leave fields empty and clear all cards to use the platform default copy. Add or remove cards, reorder, and
-                pick icon and color for each.
+                <strong>{tr("workspace.adminSettings.adminOnly")}</strong>{tr("workspace.adminSettings.whyLearnDesc")}
               </p>
               {isSiteLoading ? (
-                <p className="text-xs text-gray-400">Loading…</p>
+                <p className="text-xs text-gray-400">{tr("workspace.adminSettings.loading")}</p>
               ) : (
                 <>
                   <WhyLearnSectionEditor
@@ -492,7 +495,7 @@ export default function AdminSettingsPage() {
                       }}
                       className="px-4 py-1.5 rounded-lg text-xs font-bold bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
                     >
-                      Save Why learn section
+                      {tr("workspace.adminSettings.saveWhyLearn")}
                     </button>
                     <button
                       type="button"
@@ -517,7 +520,7 @@ export default function AdminSettingsPage() {
                       }}
                       className="px-4 py-1.5 rounded-lg text-xs font-semibold border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
                     >
-                      Reset to platform default
+                      {tr("workspace.adminSettings.resetDefault")}
                     </button>
                   </div>
                 </>
@@ -532,12 +535,12 @@ export default function AdminSettingsPage() {
               <Megaphone className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             </div>
             <div className="min-w-0 flex-1 space-y-2">
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white">Home page announcement</h2>
+              <h2 className="text-sm font-bold text-gray-900 dark:text-white">{tr("workspace.adminSettings.homeAnnHeading")}</h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Optional message at the top of the public home page for every visitor. They can close it; it reappears if you change the text.
+                {tr("workspace.adminSettings.homeAnnDesc")}
               </p>
               {isSiteLoading ? (
-                <p className="text-xs text-gray-400">Loading…</p>
+                <p className="text-xs text-gray-400">{tr("workspace.adminSettings.loading")}</p>
               ) : (
                 <>
                   <textarea
@@ -546,7 +549,7 @@ export default function AdminSettingsPage() {
                     rows={3}
                     maxLength={400}
                     disabled={isSiteSaving}
-                    placeholder="e.g. New term starts next Monday"
+                    placeholder={tr("workspace.adminSettings.homeAnnPlaceholder")}
                     className="w-full text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white px-3 py-2"
                   />
                   <p className="text-[10px] text-gray-400 text-end">{homeText.length}/400</p>
@@ -563,7 +566,7 @@ export default function AdminSettingsPage() {
                       }}
                       className="px-4 py-1.5 rounded-lg text-xs font-bold bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
                     >
-                      Save
+                      {tr("workspace.adminSettings.save")}
                     </button>
                     <button
                       type="button"
@@ -578,7 +581,7 @@ export default function AdminSettingsPage() {
                       }}
                       className="px-4 py-1.5 rounded-lg text-xs font-semibold border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
                     >
-                      Clear
+                      {tr("workspace.adminSettings.clear")}
                     </button>
                   </div>
                 </>
@@ -596,9 +599,9 @@ export default function AdminSettingsPage() {
               <Megaphone className="w-5 h-5 text-brand-600 dark:text-brand-400" />
             </div>
             <div className="min-w-0 flex-1 space-y-1">
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white">In-app notifications to users</h2>
+              <h2 className="text-sm font-bold text-gray-900 dark:text-white">{tr("workspace.adminSettings.inAppHeading")}</h2>
               <p className="text-xs text-gray-500 dark:text-gray-400 pb-2">
-                Logged-in users get these in their notification list (not the public home banner).
+                {tr("workspace.adminSettings.inAppDesc")}
               </p>
               <SendAnnouncementForm />
             </div>

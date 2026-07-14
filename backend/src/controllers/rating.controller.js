@@ -205,6 +205,11 @@ export const getPublicCourse = async (req, res) => {
 
     const freePreviewCount = (coursePlain.lectures || []).filter((l) => l.isFreePreview).length;
 
+    const hasTrailer = Boolean(
+      (typeof course.trailerVideoUrl === "string" && course.trailerVideoUrl.trim()) ||
+        (typeof course.trailerVimeoVideoId === "string" && course.trailerVimeoVideoId.trim()),
+    );
+
     return res.status(200).json({
       course: coursePlain,
       meta: {
@@ -214,6 +219,7 @@ export const getPublicCourse = async (req, res) => {
         totalDuration,
         teacherCourseCount,
         freePreviewCount,
+        hasTrailer,
       },
     });
   } catch (error) {

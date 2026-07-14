@@ -3,12 +3,15 @@ import Enrollment from "../models/enrollment.model.js";
 import Payment from "../models/payment.model.js";
 import User from "../models/user.model.js";
 import SiteSettings from "../models/siteSettings.model.js";
+import mongoose from "mongoose";
 import { invalidateCommentSettingsCache } from "../lib/commentPolicy.js";
 import {
   getPlatformCategoryNamesForApi,
   normalizePlatformCourseCategoryList,
 } from "../lib/platformCourseCategories.js";
 import { parseHttpUrl } from "../lib/safeHttpUrl.js";
+import { buildLearnerEnrollmentSnapshot } from "../services/learnerEnrollmentSnapshot.service.js";
+import { buildAdminDashboardPulse } from "../services/adminDashboardPulse.service.js";
 
 /** Shown on GET /api/public/about when DB body is empty. */
 export const DEFAULT_ABOUT_PAGE_TITLE = "About CourseAcademy";
@@ -200,6 +203,7 @@ export function getPublicBrandingPayload(doc) {
     heroTrustLine1: brandingStr(d, "heroTrustLine1", B.heroTrustLine1).slice(0, 80),
     heroTrustLine2: brandingStr(d, "heroTrustLine2", B.heroTrustLine2).slice(0, 80),
     heroTrustLine3: brandingStr(d, "heroTrustLine3", B.heroTrustLine3).slice(0, 80),
+    homePlatformStatsEnabled: d.homePlatformStatsEnabled !== false,
   };
 }
 
@@ -347,13 +351,23 @@ const makeMonthlyCountSeries = async (
 
 export const getDashboardStats = async (req, res) => {
   try {
-    const totalUsers = await User.countDocuments();
-    const totalCourses = await Course.countDocuments();
-    const totalEnrollments = await Enrollment.countDocuments();
-    const totalPayments = await Payment.countDocuments({ status: "succeeded" });
-
-    const totalStudents = await User.countDocuments({ role: "student" });
-    const totalTeachers = await User.countDocuments({ role: "teacher" });
+    const [
+      totalUsers,
+      totalCourses,
+      totalEnrollments,
+      totalPayments,
+      totalStudents,
+      totalTeachers,
+      pulse,
+    ] = await Promise.all([
+      User.countDocuments(),
+      Course.countDocuments(),
+      Enrollment.countDocuments(),
+      Payment.countDocuments({ status: "succeeded" }),
+      User.countDocuments({ role: "student" }),
+      User.countDocuments({ role: "teacher" }),
+      buildAdminDashboardPulse(),
+    ]);
 
     res.json({
       totalUsers,
@@ -362,6 +376,7 @@ export const getDashboardStats = async (req, res) => {
       totalStudents,
       totalTeachers,
       totalPayments,
+      ...pulse,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -573,29 +588,6 @@ export const softDeleteUser = async (req, res) => {
 };
 
 
-export const changeUserRole = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { role } = req.body; // expected: "student" | "teacher" | "admin"
-
-    if (!["student", "teacher", "admin"].includes(role)) {
-      return res.status(400).json({ message: "Invalid role" });
-    }
-
-    const user = await User.findById(id);
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    user.role = role;
-    await user.save();
-
-    res.status(200).json({ message: "Role updated successfully", user });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-
 // Get a single user by ID
 export const getUserById = async (req, res) => {
   try {
@@ -613,6 +605,42 @@ export const getUserById = async (req, res) => {
   } catch (error) {
     console.error("Error fetching user by ID:", error.message);
     res.status(500).json({ message: "Server Error" });
+  }
+};
+
+/** Admin: learner stats for each course this user is actively enrolled in. */
+export const getAdminUserLearnerSnapshots = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!mongoose.isValidObjectId(userId)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
+    const enrollments = await Enrollment.find({
+      student: userId,
+      status: "active",
+    })
+      .select("course")
+      .lean();
+
+    const user = await User.findById(userId).select("name email").lean();
+
+    const snapshots = [];
+    for (const e of enrollments) {
+      const snap = await buildLearnerEnrollmentSnapshot(e.course, userId);
+      if (snap) {
+        snapshots.push({
+          ...snap,
+          studentName: user?.name || "—",
+          studentEmail: user?.email || "",
+        });
+      }
+    }
+
+    res.json({ snapshots });
+  } catch (error) {
+    console.error("getAdminUserLearnerSnapshots:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -699,6 +727,18 @@ export const getSiteSettings = async (req, res) => {
       heroTrustLine1: typeof doc?.heroTrustLine1 === "string" ? doc.heroTrustLine1 : "",
       heroTrustLine2: typeof doc?.heroTrustLine2 === "string" ? doc.heroTrustLine2 : "",
       heroTrustLine3: typeof doc?.heroTrustLine3 === "string" ? doc.heroTrustLine3 : "",
+      homePlatformStatsEnabled: doc?.homePlatformStatsEnabled !== false,
+      certificateIssuerLegalName:
+        typeof doc?.certificateIssuerLegalName === "string" ? doc.certificateIssuerLegalName : "",
+      certificateIssuerTagline:
+        typeof doc?.certificateIssuerTagline === "string" ? doc.certificateIssuerTagline : "",
+      certificateLogoUrl: typeof doc?.certificateLogoUrl === "string" ? doc.certificateLogoUrl : "",
+      certificateSignatureImageUrl:
+        typeof doc?.certificateSignatureImageUrl === "string" ? doc.certificateSignatureImageUrl : "",
+      certificateSignatoryName:
+        typeof doc?.certificateSignatoryName === "string" ? doc.certificateSignatoryName : "",
+      certificateSignatoryTitle:
+        typeof doc?.certificateSignatoryTitle === "string" ? doc.certificateSignatoryTitle : "",
       defaultBranding: DEFAULT_BRANDING,
     });
   } catch (error) {
@@ -798,6 +838,40 @@ export const getPublicMoneyBackGuarantee = async (req, res) => {
   }
 };
 
+/** Public — aggregate counts for marketing / trust strip on the home page. */
+export const getPublicPlatformStats = async (req, res) => {
+  try {
+    const notDeleted = { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] };
+    const activeUser = {
+      ...notDeleted,
+      status: "active",
+    };
+
+    const [publishedCourses, students, teachers, activeEnrollments] = await Promise.all([
+      Course.countDocuments({
+        isDeleted: { $ne: true },
+        isPublished: true,
+        status: "published",
+      }),
+      User.countDocuments({ ...activeUser, role: "student" }),
+      User.countDocuments({ ...activeUser, role: "teacher" }),
+      Enrollment.countDocuments({
+        status: "active",
+      }),
+    ]);
+
+    return res.status(200).json({
+      publishedCourses,
+      students,
+      teachers,
+      activeEnrollments,
+    });
+  } catch (error) {
+    console.error("getPublicPlatformStats:", error);
+    return res.status(500).json({ message: error.message || "Failed to load stats" });
+  }
+};
+
 export const patchSiteSettings = async (req, res) => {
   try {
     const {
@@ -833,6 +907,13 @@ export const patchSiteSettings = async (req, res) => {
       heroTrustLine1,
       heroTrustLine2,
       heroTrustLine3,
+      homePlatformStatsEnabled,
+      certificateIssuerLegalName,
+      certificateIssuerTagline,
+      certificateLogoUrl,
+      certificateSignatureImageUrl,
+      certificateSignatoryName,
+      certificateSignatoryTitle,
     } = req.body;
     if (
       commentsGloballyDisabled === undefined &&
@@ -866,7 +947,14 @@ export const patchSiteSettings = async (req, res) => {
       heroSecondaryCtaLabel === undefined &&
       heroTrustLine1 === undefined &&
       heroTrustLine2 === undefined &&
-      heroTrustLine3 === undefined
+      heroTrustLine3 === undefined &&
+      homePlatformStatsEnabled === undefined &&
+      certificateIssuerLegalName === undefined &&
+      certificateIssuerTagline === undefined &&
+      certificateLogoUrl === undefined &&
+      certificateSignatureImageUrl === undefined &&
+      certificateSignatoryName === undefined &&
+      certificateSignatoryTitle === undefined
     ) {
       return res
         .status(400)
@@ -964,6 +1052,49 @@ export const patchSiteSettings = async (req, res) => {
     }
     if (heroTrustLine3 !== undefined) {
       $set.heroTrustLine3 = typeof heroTrustLine3 === "string" ? heroTrustLine3.trim().slice(0, 80) : "";
+    }
+    if (homePlatformStatsEnabled !== undefined) {
+      $set.homePlatformStatsEnabled = Boolean(homePlatformStatsEnabled);
+    }
+    if (certificateIssuerLegalName !== undefined) {
+      $set.certificateIssuerLegalName =
+        typeof certificateIssuerLegalName === "string"
+          ? certificateIssuerLegalName.trim().slice(0, 160)
+          : "";
+    }
+    if (certificateIssuerTagline !== undefined) {
+      $set.certificateIssuerTagline =
+        typeof certificateIssuerTagline === "string"
+          ? certificateIssuerTagline.trim().slice(0, 240)
+          : "";
+    }
+    if (certificateLogoUrl !== undefined) {
+      const raw = typeof certificateLogoUrl === "string" ? certificateLogoUrl.trim() : "";
+      if (!raw) $set.certificateLogoUrl = "";
+      else {
+        const p = parseHttpUrl(raw);
+        if (!p.ok) return res.status(400).json({ message: p.message || "Invalid certificate logo URL" });
+        $set.certificateLogoUrl = p.value.slice(0, 500);
+      }
+    }
+    if (certificateSignatureImageUrl !== undefined) {
+      const raw = typeof certificateSignatureImageUrl === "string" ? certificateSignatureImageUrl.trim() : "";
+      if (!raw) $set.certificateSignatureImageUrl = "";
+      else {
+        const p = parseHttpUrl(raw);
+        if (!p.ok) {
+          return res.status(400).json({ message: p.message || "Invalid certificate signature image URL" });
+        }
+        $set.certificateSignatureImageUrl = p.value.slice(0, 500);
+      }
+    }
+    if (certificateSignatoryName !== undefined) {
+      $set.certificateSignatoryName =
+        typeof certificateSignatoryName === "string" ? certificateSignatoryName.trim().slice(0, 120) : "";
+    }
+    if (certificateSignatoryTitle !== undefined) {
+      $set.certificateSignatoryTitle =
+        typeof certificateSignatoryTitle === "string" ? certificateSignatoryTitle.trim().slice(0, 160) : "";
     }
     if (refundsEnabled !== undefined) {
       $set.refundsEnabled = Boolean(refundsEnabled);
@@ -1082,6 +1213,18 @@ export const patchSiteSettings = async (req, res) => {
       heroTrustLine1: typeof doc?.heroTrustLine1 === "string" ? doc.heroTrustLine1 : "",
       heroTrustLine2: typeof doc?.heroTrustLine2 === "string" ? doc.heroTrustLine2 : "",
       heroTrustLine3: typeof doc?.heroTrustLine3 === "string" ? doc.heroTrustLine3 : "",
+      homePlatformStatsEnabled: doc?.homePlatformStatsEnabled !== false,
+      certificateIssuerLegalName:
+        typeof doc?.certificateIssuerLegalName === "string" ? doc.certificateIssuerLegalName : "",
+      certificateIssuerTagline:
+        typeof doc?.certificateIssuerTagline === "string" ? doc.certificateIssuerTagline : "",
+      certificateLogoUrl: typeof doc?.certificateLogoUrl === "string" ? doc.certificateLogoUrl : "",
+      certificateSignatureImageUrl:
+        typeof doc?.certificateSignatureImageUrl === "string" ? doc.certificateSignatureImageUrl : "",
+      certificateSignatoryName:
+        typeof doc?.certificateSignatoryName === "string" ? doc.certificateSignatoryName : "",
+      certificateSignatoryTitle:
+        typeof doc?.certificateSignatoryTitle === "string" ? doc.certificateSignatoryTitle : "",
       defaultBranding: DEFAULT_BRANDING,
     });
   } catch (error) {

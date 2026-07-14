@@ -10,6 +10,8 @@ import {
   useDeleteNotification,
 } from "../../api/notifications";
 
+const ADMIN_MANUAL_PROOF_ACTION = "payment.manual_proof_admin";
+
 function timeAgo(iso, t, i18n) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -23,6 +25,7 @@ function timeAgo(iso, t, i18n) {
 export default function AccountNotificationsPanel() {
   const { t, i18n } = useTranslation();
   const user = useUserStore((s) => s.user);
+  const isAdmin = user?.role === "admin";
   const { data, isLoading } = useRecentNotifications(5);
   const { data: unread = 0 } = useUnreadNotificationCount();
   const { mutate: markRead } = useMarkNotificationRead();
@@ -72,8 +75,12 @@ export default function AccountNotificationsPanel() {
         {list.map((n) => (
           <li key={n._id} className="group flex items-start gap-1 rounded-md px-1 py-0.5 hover:bg-gray-50 dark:hover:bg-gray-800/50">
             <Link
-              to={{ pathname: paths.notifications, search: `?id=${n._id}` }}
-              state={{ n }}
+              to={
+                isAdmin && n.actionType === ADMIN_MANUAL_PROOF_ACTION
+                  ? paths.adminManualPayments
+                  : { pathname: paths.notifications, search: `?id=${n._id}` }
+              }
+              state={isAdmin && n.actionType === ADMIN_MANUAL_PROOF_ACTION ? undefined : { n }}
               onClick={() => {
                 if (!n.isRead) markRead(n._id);
               }}

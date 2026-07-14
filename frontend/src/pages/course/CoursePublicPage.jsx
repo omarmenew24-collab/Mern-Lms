@@ -18,6 +18,7 @@ import {
   ShoppingCart,
   ExternalLink,
   ShieldCheck,
+  Film,
 } from "lucide-react";
 import useUserStore from "../../store/userstore";
 import useCartStore from "../../store/cartStore";
@@ -114,6 +115,8 @@ const CoursePublic = () => {
     return { onSale, list, eff, pctOff, endsLabel };
   }, [course]);
 
+  const showAsFree = Boolean(course?.isFree);
+
   const { average, count, policy: ratingPolicy, isLoading: summaryLoading } = useGetRatingSummary(courseId);
   const isOwner =
     Boolean(user && course?.teacher) &&
@@ -205,6 +208,26 @@ const CoursePublic = () => {
       freePreviewLectures[0]
     );
   }, [freePreviewLectures, activeFreePreviewId]);
+
+  const trailerPlayerLecture = useMemo(() => {
+    if (!course) return null;
+    const url = typeof course.trailerVideoUrl === "string" ? course.trailerVideoUrl.trim() : "";
+    const vid = typeof course.trailerVimeoVideoId === "string" ? course.trailerVimeoVideoId.trim() : "";
+    if (!url && !vid) return null;
+    const title =
+      (typeof course.trailerTitle === "string" && course.trailerTitle.trim()) ||
+      t("coursePublic.trailerDefaultTitle");
+    return {
+      _id: "course-trailer",
+      title,
+      contentType: "video",
+      videoUrl: url,
+      vimeoVideoId: vid,
+    };
+  }, [course, t]);
+
+  const showTrailerBlock = !isEnrolled && Boolean(trailerPlayerLecture);
+  const showFreePreviewBlock = !isEnrolled && !trailerPlayerLecture && freePreviewLectures.length > 0;
 
   const [expandedLevels, setExpandedLevels] = useState({});
   const toggleLevel = (num) => setExpandedLevels((prev) => ({ ...prev, [num]: !prev[num] }));
@@ -338,8 +361,6 @@ const CoursePublic = () => {
   const previewExtras = editingCatalog
     ? (catalogDraft.includesExtras || []).map((s) => String(s).trim()).filter(Boolean)
     : extraIncludes;
-
-  const showFreePreviewBlock = !isEnrolled && freePreviewLectures.length > 0;
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950">
@@ -603,6 +624,26 @@ const CoursePublic = () => {
             )}
           </section>
 
+          {/* Course trailer (optional) — for visitors; replaces free-preview block when configured */}
+          {showTrailerBlock && trailerPlayerLecture && (
+            <section className="rounded-xl border border-emerald-200/80 dark:border-emerald-800/50 bg-emerald-50/40 dark:bg-emerald-950/20 p-6">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-4">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600/15 text-emerald-700 dark:text-emerald-300">
+                    <Film className="h-4 w-4" aria-hidden />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t("coursePublic.trailerTitle")}</h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">{t("coursePublic.trailerSubtitle")}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="min-w-0">
+                <LecturePlayerPanel lecture={trailerPlayerLecture} title={trailerPlayerLecture.title} />
+              </div>
+            </section>
+          )}
+
           {/* Free preview: watchable before enrollment (API only exposes play URLs for preview lectures) */}
           {showFreePreviewBlock && activeFreeLecture && (
             <section className="rounded-xl border border-violet-200/80 dark:border-violet-800/50 bg-violet-50/40 dark:bg-violet-950/20 p-6">
@@ -666,9 +707,11 @@ const CoursePublic = () => {
                 <span className="text-xs text-gray-500 dark:text-gray-400 text-end max-w-[min(18rem,55vw)]">
                   {t("coursePublic.sectionCount", { count: groupedLectures.length })} · {t("coursePublic.lectureCount", { count: totalLectures })}
                   {totalDuration ? ` · ${totalDuration}` : ""}
-                  {meta?.freePreviewCount > 0
-                    ? ` · ${t("coursePublic.freePreviewChoose", { count: meta.freePreviewCount })}`
-                    : ""}
+                  {!isEnrolled && meta?.hasTrailer
+                    ? ` · ${t("coursePublic.metaTrailer")}`
+                    : !isEnrolled && meta?.freePreviewCount > 0
+                      ? ` · ${t("coursePublic.freePreviewChoose", { count: meta.freePreviewCount })}`
+                      : ""}
                 </span>
               </div>
 
@@ -859,7 +902,16 @@ const CoursePublic = () => {
                 className="w-full aspect-video object-cover"
               />
               <div className="p-5 space-y-4">
-                {pricingDisplay.onSale && pricingDisplay.list != null && pricingDisplay.eff != null ? (
+                {showAsFree ? (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      {t("coursePublic.priceLabel")}
+                    </p>
+                    <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
+                      {t("coursePublic.freeBadge")}
+                    </p>
+                  </div>
+                ) : pricingDisplay.onSale && pricingDisplay.list != null && pricingDisplay.eff != null ? (
                   <div className="rounded-xl border border-amber-200/90 dark:border-amber-800/50 bg-gradient-to-br from-amber-50/95 via-white to-orange-50/80 dark:from-amber-950/35 dark:via-gray-900/40 dark:to-orange-950/25 p-4 shadow-inner space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-800/90 dark:text-amber-200/90">
@@ -935,8 +987,12 @@ const CoursePublic = () => {
                         onClick={() => navigate(paths.checkoutCourse(course._id))}
                         className="w-full h-12 rounded-lg bg-brand-600 text-white font-bold text-base hover:bg-brand-700 transition-colors active:scale-[0.98]"
                       >
-                        {t("coursePublic.enrollNow")}
+                        {showAsFree ? t("coursePublic.enrollFreeCta") : t("coursePublic.enrollNow")}
                       </button>
+                    </div>
+                  ) : user.role !== "student" ? (
+                    <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/20 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
+                      Only student accounts can enroll in courses.
                     </div>
                   ) : enrollmentLoading ? (
                     <button
@@ -979,7 +1035,7 @@ const CoursePublic = () => {
                         onClick={() => navigate(paths.checkoutCourse(course._id))}
                         className="w-full h-12 rounded-lg bg-brand-600 text-white font-bold text-base hover:bg-brand-700 transition-colors active:scale-[0.98]"
                       >
-                        {t("coursePublic.enrollNow")}
+                        {showAsFree ? t("coursePublic.enrollFreeCta") : t("coursePublic.enrollNow")}
                       </button>
                     </div>
                   )

@@ -73,7 +73,7 @@ export const createCourseComment = async (req, res) => {
 
     const text = String(content || "").trim();
     if (!text) {
-      return res.status(400).json({ message: "Comment cannot be empty" });
+      return res.status(400).json({ message: "Message cannot be empty" });
     }
 
     const site = await getSiteCommentSettings();
@@ -92,14 +92,14 @@ export const createCourseComment = async (req, res) => {
     const bypass = canBypassCommentLock(req.user, course);
     if (locked && !bypass) {
       return res.status(403).json({
-        message: "Comments are closed for this course. Only staff can post.",
+        message: "Q&A posting is limited for this course. Only staff can post right now.",
       });
     }
 
     let parentObjectId = null;
     if (parentCommentId) {
       if (!mongoose.Types.ObjectId.isValid(parentCommentId)) {
-        return res.status(400).json({ message: "Invalid parent comment" });
+        return res.status(400).json({ message: "Invalid parent message" });
       }
       const parent = await CourseComment.findOne({
         _id: parentCommentId,
@@ -107,7 +107,7 @@ export const createCourseComment = async (req, res) => {
         isDeleted: { $ne: true },
       });
       if (!parent) {
-        return res.status(400).json({ message: "Parent comment not found" });
+        return res.status(400).json({ message: "Parent message not found" });
       }
       parentObjectId = parent._id;
     }
@@ -144,8 +144,8 @@ export const createCourseComment = async (req, res) => {
         notifySafe(() =>
           createInAppNotification({
             userId: parentFull.user,
-            title: "Reply to your comment",
-            message: `${label} replied to your comment on “${course.title}”.`,
+            title: "Reply on course Q&A",
+            message: `${label} replied to you in Questions & answers on “${course.title}”.`,
             type: "info",
             courseId,
             actionType: "course.comment_reply",
@@ -173,7 +173,7 @@ export const deleteCourseComment = async (req, res) => {
       course: courseId,
       isDeleted: { $ne: true },
     });
-    if (!comment) return res.status(404).json({ message: "Comment not found" });
+    if (!comment) return res.status(404).json({ message: "Message not found" });
 
     const course = await Course.findById(courseId).select("teacher");
     if (!course) return res.status(404).json({ message: "Course not found" });

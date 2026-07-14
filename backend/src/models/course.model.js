@@ -36,6 +36,10 @@ const courseSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    /** Optional marketing trailer on the public course page (replaces free-preview block when set). */
+    trailerTitle: { type: String, default: "", maxlength: 200, trim: true },
+    trailerVideoUrl: { type: String, default: "", maxlength: 500, trim: true },
+    trailerVimeoVideoId: { type: String, default: "", maxlength: 24, trim: true },
     /** List / base price. Optional `promotion` applies a discount at checkout. */
     price: {
       type: Number,
@@ -49,6 +53,8 @@ const courseSchema = new mongoose.Schema(
       startsAt: { type: Date, default: null },
       endsAt: { type: Date, default: null },
     },
+    /** Admin: when true, checkout price is $0 and students use free enrollment (no Stripe/manual payment). */
+    isFree: { type: Boolean, default: false, index: true },
     students: [
       {
         type: mongoose.Schema.Types.ObjectId,

@@ -169,6 +169,28 @@ export const useReorderLecture = (courseId) => {
   return { reorderLecture };
 };
 
+export const useToggleLectureAcknowledge = (courseId) => {
+  const queryClient = useQueryClient();
+
+  const { mutateAsync: setLectureAcknowledged, isPending } = useMutation({
+    mutationFn: async ({ lectureId, acknowledged }) => {
+      const res = await axiosInstance.patch(
+        `/courses/lecture/${courseId}/${lectureId}/acknowledge`,
+        { acknowledged },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["courseprogress", courseId] });
+    },
+    onError: () => {
+      toast.error("Could not update review mark");
+    },
+  });
+
+  return { setLectureAcknowledged, isPending };
+};
+
 export const useMarkLecture = (courseId) => {
   const queryClient = useQueryClient();
 
@@ -197,4 +219,26 @@ export const useMarkLecture = (courseId) => {
   });
 
   return { markLecture, isPending, isError };
+};
+
+/** Student-only: mark lecture as reviewed (does not affect course progress %) */
+export const useAcknowledgeLecture = (courseId) => {
+  const queryClient = useQueryClient();
+
+  const { mutateAsync: setLectureAcknowledged, isPending, isError } = useMutation({
+    mutationFn: async ({ lectureId, acknowledged }) => {
+      const res = await axiosInstance.patch(`/courses/lecture/${courseId}/${lectureId}/acknowledge`, {
+        acknowledged: Boolean(acknowledged),
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["courseprogress", courseId] });
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || "Could not save");
+    },
+  });
+
+  return { setLectureAcknowledged, isPending, isError };
 };

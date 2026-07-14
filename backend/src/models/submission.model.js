@@ -16,6 +16,8 @@ const submissionSchema = new mongoose.Schema(
       type: String,
       required: true, // Cloudinary or storage URL
     },
+    /** Original filename (+ extension) from the learner's upload; used for instructor downloads. */
+    originalFileName: { type: String, default: "", trim: true, maxlength: 200 },
     submittedAt: {
       type: Date,
       default: Date.now,

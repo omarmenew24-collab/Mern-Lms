@@ -125,6 +125,10 @@ const setRefreshTokenCookie = (res, refreshToken) => {
 
 /** New login/signup/Google sign-in: one browser = one `UserSession`; other devices keep their own sessions. */
 async function issueTokensForNewSession(res, user, req) {
+  await User.updateOne({ _id: user._id }, { $set: { lastLogin: new Date() } }).catch((e) => {
+    console.warn("[auth] lastLogin update failed:", e?.message);
+  });
+
   const rawUa = req?.headers?.["user-agent"];
   const userAgent =
     typeof rawUa === "string" ? rawUa.slice(0, 512) : "";

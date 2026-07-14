@@ -66,6 +66,7 @@ export const updateUnifiedProgress = async (studentId, courseId) => {
       course: courseId,
       completedLectures: [],
       completedTasks: [],
+      acknowledgedLectures: [],
       progress: 0,
       isCompleted: false,
     });
@@ -82,6 +83,11 @@ export const updateUnifiedProgress = async (studentId, courseId) => {
   progressDoc.completedLectures = progressDoc.completedLectures.filter(l =>
     validLectureIds.includes(l.toString())
   );
+  if (Array.isArray(progressDoc.acknowledgedLectures)) {
+    progressDoc.acknowledgedLectures = progressDoc.acknowledgedLectures.filter((l) =>
+      validLectureIds.includes(l.toString()),
+    );
+  }
 
   // 5️⃣ Count total and completed items
   const totalItems = validTaskIds.length + validLectureIds.length;

@@ -40,7 +40,7 @@ const paymentSchema = new mongoose.Schema(
     },
     provider: {
       type: String,
-      enum: ["stripe", "manual"],
+      enum: ["stripe", "manual", "free"],
       default: "stripe",
       index: true,
     },
@@ -58,11 +58,19 @@ const paymentSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    /** If captured at checkout (optional); included in chargeback evidence when present. */
+    /** If captured at checkout (optional). */
     clientIp: {
       type: String,
       default: null,
     },
+    coupon: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Coupon",
+      default: null,
+      index: true,
+    },
+    couponCodeSnapshot: { type: String, default: "" },
+    couponDiscountAmount: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true },
 );

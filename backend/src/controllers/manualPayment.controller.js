@@ -5,8 +5,16 @@ import ManualPaymentMethod from "../models/manualPaymentMethod.model.js";
 import ManualPaymentOrder from "../models/manualPaymentOrder.model.js";
 import { uploadManualReceipt } from "../lib/cloudinaryupload.js";
 import { computeEffectivePrice, MIN_CHECKOUT_PRICE_USD } from "../lib/coursePricing.js";
+import {
+  normalizeCouponCode,
+  validateCouponForCheckout,
+} from "../lib/couponCheckout.js";
 import { finalizeManualPaymentEnrollment } from "./payment.controller.js";
-import { onManualPaymentRejected } from "../services/notification.service.js";
+import {
+  notifySafe,
+  onManualPaymentProofSubmittedForAdmins,
+  onManualPaymentRejected,
+} from "../services/notification.service.js";
 
 function courseIsOpenForEnrollment(course) {
   return (
@@ -130,7 +138,7 @@ export const createManualPaymentOrder = async (req, res) => {
         message: "Only student accounts can enroll in courses",
       });
     }
-    const { courseId, paymentMethodId } = req.body || {};
+    const { courseId, paymentMethodId, couponCode } = req.body || {};
     if (!courseId || !paymentMethodId) {
       return res.status(400).json({ message: "courseId and paymentMethodId are required" });
     }
@@ -157,7 +165,42 @@ export const createManualPaymentOrder = async (req, res) => {
 
     const coursePlain = course.toObject ? course.toObject() : course;
     const { effectivePrice } = computeEffectivePrice(coursePlain);
-    if (!Number.isFinite(effectivePrice) || effectivePrice < MIN_CHECKOUT_PRICE_USD) {
+    if (!Number.isFinite(effectivePrice) || effectivePrice === 0) {
+      return res.status(400).json({
+        message: "This course has no paid amount. Use free enrollment from the course checkout page.",
+      });
+    }
+    if (effectivePrice < MIN_CHECKOUT_PRICE_USD) {
+      return res.status(400).json({
+        message: `Manual checkout requires a price of at least $${MIN_CHECKOUT_PRICE_USD.toFixed(2)}.`,
+      });
+    }
+
+    let finalAmount = effectivePrice;
+    let couponRef = null;
+    let couponCodeSnapshot = "";
+    let couponDiscountAmount = 0;
+    const couponNorm = normalizeCouponCode(couponCode);
+    if (couponNorm) {
+      const v = await validateCouponForCheckout({
+        code: couponNorm,
+        courseId,
+        studentId,
+      });
+      if (!v.ok) {
+        return res.status(400).json({ message: v.message });
+      }
+      finalAmount = v.finalPrice;
+      couponRef = v.coupon._id;
+      couponCodeSnapshot = v.coupon.code || couponNorm;
+      couponDiscountAmount = v.discountAmount;
+    }
+    if (!Number.isFinite(finalAmount) || finalAmount === 0) {
+      return res.status(400).json({
+        message: "This course has no paid amount. Use free enrollment from the course checkout page.",
+      });
+    }
+    if (finalAmount < MIN_CHECKOUT_PRICE_USD) {
       return res.status(400).json({
         message: `Manual checkout requires a price of at least $${MIN_CHECKOUT_PRICE_USD.toFixed(2)}.`,
       });
@@ -174,9 +217,12 @@ export const createManualPaymentOrder = async (req, res) => {
     if (existingOpen) {
       if (String(existingOpen.paymentMethod) !== String(paymentMethodId)) {
         existingOpen.paymentMethod = paymentMethodId;
-        existingOpen.amount = effectivePrice;
-        await existingOpen.save();
       }
+      existingOpen.amount = finalAmount;
+      existingOpen.coupon = couponRef;
+      existingOpen.couponCodeSnapshot = couponCodeSnapshot;
+      existingOpen.couponDiscountAmount = couponDiscountAmount;
+      await existingOpen.save();
       const populated = await populateOrder(existingOpen);
       return res.status(200).json({ order: populated, reused: true });
     }
@@ -189,9 +235,12 @@ export const createManualPaymentOrder = async (req, res) => {
           student: studentId,
           course: courseId,
           paymentMethod: paymentMethodId,
-          amount: effectivePrice,
+          amount: finalAmount,
           currency: "usd",
           status: "awaiting_proof",
+          coupon: couponRef,
+          couponCodeSnapshot,
+          couponDiscountAmount,
           auditLog: [
             {
               at: new Date(),
@@ -334,7 +383,9 @@ export const submitManualPaymentProof = async (req, res) => {
     });
 
     await order.save();
-    return res.json({ order: await populateOrder(order) });
+    const populated = await populateOrder(order);
+    notifySafe(() => onManualPaymentProofSubmittedForAdmins({ order: populated }));
+    return res.json({ order: populated });
   } catch (e) {
     console.error("submitManualPaymentProof:", e);
     return res.status(500).json({ message: e.message || "Failed to submit proof" });

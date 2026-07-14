@@ -23,6 +23,7 @@ export function useNotificationsList(page = 1, limit = 20) {
     },
     // Require access token: persisted `user` can exist while JWT is still null (e.g. refresh pending/failed)
     enabled: Boolean(user && accessToken),
+    refetchInterval: 30_000,
   });
 }
 
@@ -41,7 +42,7 @@ export function useUnreadNotificationCount() {
       return typeof data?.count === "number" ? data.count : 0;
     },
     enabled: Boolean(user && accessToken),
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
   });
 }
 

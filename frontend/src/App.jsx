@@ -13,6 +13,7 @@ import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import HomePage from "./pages/home/HomePage";
 import AboutPage from "./pages/AboutPage";
+import CertificateVerifyPage from "./pages/CertificateVerifyPage";
 import PublicUserProfilePage from "./pages/PublicUserProfilePage";
 import StudentPage from "./pages/student/StudentPage";
 import TeacherPage from "./pages/teacher/TeacherPage";
@@ -25,8 +26,6 @@ import StudentDetailsPage from "./pages/course/StudentDetailsPage";
 import UpdateProfilePage from "./pages/profile/UpdateProfilePage";
 import CartPage from "./pages/cart/CartPage";
 import NotificationsPage from "./pages/notifications/NotificationsPage";
-import BecomeTeacherPage from "./pages/teaching/BecomeTeacherPage";
-import TeachingRequestPage from "./pages/teaching/TeachingRequestPage";
 import PaymentPage from "./pages/billing/PaymentPage";
 import SuccessPage from "./pages/billing/SuccessPage";
 import UploadFilePage from "./pages/submission/UploadFilePage";
@@ -38,9 +37,8 @@ import AdminCourseDetailsPage from "./pages/admin/AdminCourseDetailsPage";
 import AdminFinancePage from "./pages/admin/AdminFinancePage";
 import AdminFinancialSettingsPage from "./pages/admin/AdminFinancialSettingsPage";
 import AdminRefundsPage from "./pages/admin/AdminRefundsPage";
-import AdminChargebacksPage from "./pages/admin/AdminChargebacksPage";
-import AdminChargebackDetailPage from "./pages/admin/AdminChargebackDetailPage";
 import AdminManualPaymentsPage from "./pages/admin/AdminManualPaymentsPage";
+import AdminCouponsPage from "./pages/admin/AdminCouponsPage";
 import StudentManualPaymentsPage from "./pages/student/StudentManualPaymentsPage";
 import StudentRefundsPage from "./pages/student/StudentRefundsPage";
 import UsersPage from "./pages/admin/UsersPage";
@@ -63,13 +61,6 @@ function RedirectUserDetails() {
 }
 function RedirectUpdateProfile() {
   return <Navigate to="/profile" replace />;
-}
-function RedirectTeacherForm() {
-  return <Navigate to="/teaching/apply" replace />;
-}
-function RedirectTeachingRequest() {
-  const { id } = useParams();
-  return <Navigate to={`/teaching/requests/${id}`} replace />;
 }
 function RedirectCreateCourse() {
   return <Navigate to="/teacher/courses/new" replace />;
@@ -96,7 +87,7 @@ function RedirectCoursePublic() {
 }
 function RedirectCourseTeacherDash() {
   const { id } = useParams();
-  return <Navigate to={`/courses/${id}/workspace`} replace />;
+  return <Navigate to={`/courses/${id}/workspace/curriculum`} replace />;
 }
 function RedirectCourseStudentDash() {
   const { id } = useParams();
@@ -174,6 +165,7 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/certificate/verify/:code" element={<CertificateVerifyPage />} />
           <Route path="/u/:userId" element={<PublicUserProfilePage />} />
 
           <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
@@ -193,6 +185,7 @@ function App() {
           <Route path="/teacher" element={<TeacherPage />} />
           <Route path="/teacher/courses/new" element={<CreateCoursePage />} />
 
+          <Route path="/courses/:courseId/workspace/:workspaceTab" element={<CourseDashboardPage />} />
           <Route path="/courses/:courseId/workspace" element={<CourseDashboardPage />} />
           <Route path="/courses/:courseId/tasks/new" element={<CreateTaskPage />} />
           <Route path="/courses/:courseId/lectures/new" element={<CreateLecturePage />} />
@@ -217,15 +210,6 @@ function App() {
           <Route path="/profile" element={<UpdateProfilePage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/cart" element={<CartPage />} />
-          <Route path="/teaching/apply" element={<BecomeTeacherPage />} />
-          <Route
-            path="/teaching/requests/:id"
-            element={
-              <RequireAdmin>
-                <TeachingRequestPage />
-              </RequireAdmin>
-            }
-          />
 
           <Route path="/checkout/courses/:courseId" element={<PaymentPage />} />
           <Route path="/checkout/success/:courseId" element={<SuccessPage />} />
@@ -269,21 +253,15 @@ function App() {
             }
           />
           <Route
-            path="/admin/chargebacks"
+            path="/admin/coupons"
             element={
               <RequireAdmin>
-                <AdminChargebacksPage />
+                <AdminCouponsPage />
               </RequireAdmin>
             }
           />
-          <Route
-            path="/admin/chargebacks/:id"
-            element={
-              <RequireAdmin>
-                <AdminChargebackDetailPage />
-              </RequireAdmin>
-            }
-          />
+          <Route path="/admin/chargebacks" element={<Navigate to="/admin/finance" replace />} />
+          <Route path="/admin/chargebacks/:id" element={<Navigate to="/admin/finance" replace />} />
           <Route path="/student/manual-payments" element={<StudentManualPaymentsPage />} />
           <Route path="/student/refunds" element={<StudentRefundsPage />} />
           <Route
@@ -305,8 +283,6 @@ function App() {
           <Route path="/allusers" element={<RedirectAllUsers />} />
           <Route path="/userdetailspage/:userId" element={<RedirectUserDetails />} />
           <Route path="/updateprofile" element={<RedirectUpdateProfile />} />
-          <Route path="/teacherform" element={<RedirectTeacherForm />} />
-          <Route path="/teachingrequest/:id" element={<RedirectTeachingRequest />} />
           <Route path="/createcourse" element={<RedirectCreateCourse />} />
           <Route path="/payment/:courseId" element={<RedirectPayment />} />
           <Route path="/success/:courseId" element={<RedirectSuccess />} />

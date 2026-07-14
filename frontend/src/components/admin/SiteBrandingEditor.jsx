@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Sparkles } from "lucide-react";
 import { useGetSiteSettings, usePatchSiteSettings } from "../../api/admin";
 
@@ -14,12 +15,14 @@ const EMPTY = {
   heroTrustLine1: "",
   heroTrustLine2: "",
   heroTrustLine3: "",
+  homePlatformStatsEnabled: true,
 };
 
 /**
  * Admin: site name (header), hero headline, CTAs, trust bullets, hero image URL.
  */
 export default function SiteBrandingEditor() {
+  const { t } = useTranslation();
   const { siteSettings, isLoading } = useGetSiteSettings();
   const { patchSiteSettings, isPending } = usePatchSiteSettings();
   const [form, setForm] = useState(EMPTY);
@@ -40,6 +43,7 @@ export default function SiteBrandingEditor() {
       heroTrustLine1: typeof siteSettings.heroTrustLine1 === "string" ? siteSettings.heroTrustLine1 : "",
       heroTrustLine2: typeof siteSettings.heroTrustLine2 === "string" ? siteSettings.heroTrustLine2 : "",
       heroTrustLine3: typeof siteSettings.heroTrustLine3 === "string" ? siteSettings.heroTrustLine3 : "",
+      homePlatformStatsEnabled: siteSettings.homePlatformStatsEnabled !== false,
     });
   }, [siteSettings]);
 
@@ -59,21 +63,20 @@ export default function SiteBrandingEditor() {
           <Sparkles className="w-5 h-5 text-brand-600 dark:text-brand-400" />
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-bold text-gray-900 dark:text-white">Site name &amp; home hero</h2>
+          <h2 className="text-sm font-bold text-gray-900 dark:text-white">{t("workspace.siteBranding.heading")}</h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Public-facing branding: logo text in the header, browser title, and the main hero on the home page. Leave a
-            field empty to use the built-in default (shown in placeholders).
+            {t("workspace.siteBranding.intro")}
           </p>
         </div>
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-400">Loading…</p>
+        <p className="text-sm text-gray-400">{t("workspace.siteBranding.loading")}</p>
       ) : (
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1" htmlFor="site-name">
-              Site name (header &amp; tab title)
+              {t("workspace.siteBranding.siteName")}
             </label>
             <input
               id="site-name"
@@ -87,7 +90,7 @@ export default function SiteBrandingEditor() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Hero badge</label>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t("workspace.siteBranding.heroBadge")}</label>
               <input
                 className={input}
                 value={form.heroBadgeText}
@@ -98,7 +101,7 @@ export default function SiteBrandingEditor() {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                Hero image URL (https)
+                {t("workspace.siteBranding.heroImageUrl")}
               </label>
               <input
                 className={input}
@@ -113,7 +116,7 @@ export default function SiteBrandingEditor() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                Headline (before accent)
+                {t("workspace.siteBranding.headlineBefore")}
               </label>
               <input
                 className={input}
@@ -125,7 +128,7 @@ export default function SiteBrandingEditor() {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                Accent words (gradient)
+                {t("workspace.siteBranding.accentWords")}
               </label>
               <input
                 className={input}
@@ -138,7 +141,7 @@ export default function SiteBrandingEditor() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Subtitle</label>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t("workspace.siteBranding.subtitle")}</label>
             <textarea
               className={`${input} min-h-[72px]`}
               value={form.heroSubtitle}
@@ -151,7 +154,7 @@ export default function SiteBrandingEditor() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Primary button</label>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t("workspace.siteBranding.primaryButton")}</label>
               <input
                 className={input}
                 value={form.heroPrimaryCtaLabel}
@@ -162,7 +165,7 @@ export default function SiteBrandingEditor() {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                Secondary button
+                {t("workspace.siteBranding.secondaryButton")}
               </label>
               <input
                 className={input}
@@ -175,7 +178,7 @@ export default function SiteBrandingEditor() {
           </div>
 
           <div>
-            <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Trust row (three short lines)</p>
+            <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">{t("workspace.siteBranding.trustRow")}</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {["heroTrustLine1", "heroTrustLine2", "heroTrustLine3"].map((key) => (
                 <input
@@ -190,13 +193,28 @@ export default function SiteBrandingEditor() {
             </div>
           </div>
 
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-gray-50/80 p-3 dark:border-gray-700 dark:bg-gray-800/50">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+              checked={form.homePlatformStatsEnabled}
+              onChange={(e) => set("homePlatformStatsEnabled", e.target.checked)}
+            />
+            <span>
+              <span className="block text-sm font-semibold text-gray-900 dark:text-white">{t("workspace.siteBranding.statsLabel")}</span>
+              <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
+                {t("workspace.siteBranding.statsDesc")}
+              </span>
+            </span>
+          </label>
+
           <button
             type="button"
             onClick={() => onSave()}
             disabled={isPending}
             className="inline-flex items-center justify-center rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-4 py-2 text-sm font-semibold hover:opacity-90 disabled:opacity-50"
           >
-            {isPending ? "Saving…" : "Save branding"}
+            {isPending ? t("workspace.siteBranding.savingShort") : t("workspace.siteBranding.saveBranding")}
           </button>
         </div>
       )}

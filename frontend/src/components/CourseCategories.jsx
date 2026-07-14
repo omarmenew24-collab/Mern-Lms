@@ -239,7 +239,7 @@ const CourseCategories = () => {
               <div
                 key={course._id}
                 onClick={() => handleCourseClick(course)}
-                className="group cursor-pointer rounded-lg overflow-hidden border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:shadow-lg transition-shadow duration-200"
+                className="group cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-shadow duration-200 hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
               >
                 {/* Image */}
                 <div className="relative aspect-video overflow-hidden bg-gray-100 dark:bg-gray-800">
@@ -290,7 +290,11 @@ const CourseCategories = () => {
 
                   {/* Price — match public page: from → now when on sale */}
                   <div className="pt-1">
-                    {course.promotionActive &&
+                    {course.isFree ? (
+                      <span className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400">
+                        {t("home.courses.freeLabel")}
+                      </span>
+                    ) : course.promotionActive &&
                     typeof course.listPrice === "number" &&
                     typeof course.effectivePrice === "number" &&
                     course.effectivePrice < course.listPrice - 0.001 ? (

@@ -7,14 +7,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 ========================= */
 // This replaces useCreatePaymentIntent to remove useEffect
 // api/payment.js
-export const useGetPaymentIntent = (courseId, userId, enabled = true) => {
+export const useGetPaymentIntent = (courseId, userId, enabled = true, couponCode = "") => {
+  const normalized = String(couponCode || "").trim().toUpperCase();
   const fetchIntent = async () => {
-    const res = await axiosInstance.post("/create-payment-intent", { courseId });
-    return res.data; // { clientSecret: '...' }
+    const body = { courseId };
+    if (normalized) body.couponCode = normalized;
+    const res = await axiosInstance.post("/create-payment-intent", body);
+    return res.data;
   };
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["paymentIntent", courseId, userId],
+    queryKey: ["paymentIntent", courseId, userId, normalized || "__none__"],
     queryFn: fetchIntent,
     enabled: Boolean(courseId && userId && enabled),
     staleTime: Infinity,
@@ -101,6 +104,23 @@ export const useSyncPaymentIntent = () => {
   return { syncPaymentIntent: mutateAsync, isPending, isError, error };
 };
 
+/** Free course (admin `isFree`): POST /enroll-free */
+export function useEnrollFreeCourse() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (cid) => {
+      const res = await axiosInstance.post("/enroll-free", { courseId: cid });
+      return res.data;
+    },
+    onSuccess: (_, cid) => {
+      queryClient.invalidateQueries({ queryKey: ["enrollment", cid] });
+      queryClient.invalidateQueries({ queryKey: ["enrollment-snapshot", cid] });
+      queryClient.invalidateQueries({ queryKey: ["public-course", cid] });
+      queryClient.invalidateQueries({ queryKey: ["courses"] });
+    },
+  });
+}
+
 /* =========================
    ADMIN: COURSE PAYMENTS (MongoDB Payment collection)
 ========================= */
@@ -163,6 +183,7 @@ export const useBulkEnrollStudents = (courseId) => {
     onSuccess: ({ enrolled, skipped }) => {
       queryClient.invalidateQueries({ queryKey: ["students", courseId] });
       queryClient.invalidateQueries({ queryKey: ["courseProgress", "bulk", courseId] });
+      queryClient.invalidateQueries({ queryKey: ["course-roster-snapshots", courseId] });
       if (enrolled > 0) {
         toast.success(`Enrolled ${enrolled} student(s)${skipped ? `, ${skipped} skipped` : ""}`);
       } else {

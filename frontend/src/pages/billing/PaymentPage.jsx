@@ -1,19 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useFormatter } from "../../lib/i18nFormatters";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
-import { Building2, CreditCard, Lock, MessageCircle, Landmark } from "lucide-react";
+import { Building2, CreditCard, Lock, MessageCircle, Landmark, Percent, Gift } from "lucide-react";
 import useUserStore from "../../store/userstore";
-import { useGetPaymentIntent, useEnrollmentSnapshot } from "../../api/payment";
+import { useGetPaymentIntent, useEnrollmentSnapshot, useEnrollFreeCourse } from "../../api/payment";
+import { useValidateCheckoutCoupon } from "../../api/coupon";
 import {
   usePublicManualPaymentMethods,
   useCreateManualPaymentOrder,
   useSubmitManualPaymentProof,
 } from "../../api/manualPayment";
-import { useGetCourseById } from "../../api/course";
+import { useGetPublicCourse } from "../../api/rating";
 import { paths } from "../../config/paths";
 import { getStripePublishableKey } from "../../config/stripePublishable";
 
@@ -92,7 +93,7 @@ function CheckoutForm() {
   );
 }
 
-function ManualPaymentSection({ courseId, courseTitle }) {
+function ManualPaymentSection({ courseId, courseTitle, couponCode = "" }) {
   const { t } = useTranslation();
   const { money } = useFormatter();
   const navigate = useNavigate();
@@ -109,6 +110,10 @@ function ManualPaymentSection({ courseId, courseTitle }) {
   const { mutateAsync: createOrder, isPending: creating } = useCreateManualPaymentOrder();
   const { mutateAsync: submitProof, isPending: submitting } = useSubmitManualPaymentProof();
 
+  useEffect(() => {
+    setOrder(null);
+  }, [couponCode, courseId]);
+
   const selectedMethod = methods.find((m) => String(m._id) === String(methodId));
 
   const startOrder = async () => {
@@ -117,7 +122,11 @@ function ManualPaymentSection({ courseId, courseTitle }) {
       return;
     }
     try {
-      const res = await createOrder({ courseId, paymentMethodId: methodId });
+      const res = await createOrder({
+        courseId,
+        paymentMethodId: methodId,
+        ...(couponCode ? { couponCode } : {}),
+      });
       setOrder(res.order);
       if (res.reused) toast.success(t("billing.checkout.resumeExisting"));
     } catch {
@@ -265,6 +274,18 @@ function ManualPaymentSection({ courseId, courseTitle }) {
 
   return (
     <div className="max-w-md mx-auto space-y-4">
+      {order.status === "rejected" ? (
+        <div className="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/90 dark:bg-amber-950/25 px-4 py-3">
+          <p className="text-xs font-semibold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
+            {t("billing.checkout.rejectionNoteTitle")}
+          </p>
+          <p className="text-sm text-amber-950 dark:text-amber-100 mt-1 whitespace-pre-wrap">
+            {String(order.rejectionReason || "").trim()
+              ? order.rejectionReason
+              : t("billing.checkout.rejectionNoNote")}
+          </p>
+        </div>
+      ) : null}
       <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t("billing.checkout.amountDue")}</p>
@@ -359,27 +380,68 @@ function ManualPaymentSection({ courseId, courseTitle }) {
 
 export default function Checkout() {
   const { t } = useTranslation();
+  const { money } = useFormatter();
   const { courseId } = useParams();
+  const navigate = useNavigate();
   const { user } = useUserStore();
+
+  const { course: publicCourse, isLoading: publicLoading, isError: publicError } =
+    useGetPublicCourse(courseId);
+  const courseTitle = publicCourse?.title || "";
+  const isFreeCourse = Boolean(publicCourse?.isFree);
+
   const [mode, setMode] = useState(() => (publishableKey ? "card" : "manual"));
+  const [couponDraft, setCouponDraft] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState("");
+  const validateCoupon = useValidateCheckoutCoupon();
 
   const { isEnrolled, isLoading: enrollmentLoading } = useEnrollmentSnapshot(
     courseId,
     user?._id,
   );
 
-  const { data: courseData } = useGetCourseById(courseId, Boolean(courseId && user?._id));
-  const courseTitle = courseData?.title || "";
+  const { mutateAsync: enrollFree, isPending: enrollingFree } = useEnrollFreeCourse();
 
   const allowStripeFetch = Boolean(
-    user?._id && !enrollmentLoading && !isEnrolled && mode === "card",
+    user?._id &&
+      !enrollmentLoading &&
+      !isEnrolled &&
+      mode === "card" &&
+      !isFreeCourse &&
+      !publicLoading &&
+      publicCourse,
   );
   const { data, isLoading, isError, error } = useGetPaymentIntent(
     courseId,
     user?._id,
     allowStripeFetch,
+    appliedCoupon,
   );
   const clientSecret = data?.clientSecret;
+  const cardAmountUsd = typeof data?.amountUsd === "number" ? data.amountUsd : null;
+
+  const onApplyCoupon = async () => {
+    const raw = couponDraft.trim();
+    if (!raw) {
+      toast.error(t("billing.checkout.couponPlaceholder"));
+      return;
+    }
+    try {
+      await validateCoupon.mutateAsync({
+        courseId,
+        couponCode: raw,
+      });
+      setAppliedCoupon(raw.trim().toUpperCase().replace(/\s+/g, ""));
+      toast.success(t("billing.checkout.couponApplied"));
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Invalid coupon");
+    }
+  };
+
+  const onRemoveCoupon = () => {
+    setAppliedCoupon("");
+    setCouponDraft("");
+  };
 
   if (!user?._id) {
     return (
@@ -391,6 +453,22 @@ export default function Checkout() {
           className="inline-flex h-11 items-center justify-center rounded-lg bg-brand-600 px-6 text-sm font-semibold text-white hover:bg-brand-700"
         >
           {t("billing.checkout.signIn")}
+        </Link>
+      </div>
+    );
+  }
+
+  if (user.role !== "student") {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col items-center justify-center px-4 py-16">
+        <p className="text-gray-800 dark:text-gray-200 font-medium text-center max-w-sm mb-4">
+          Only student accounts can enroll in courses.
+        </p>
+        <Link
+          to={paths.course(courseId)}
+          className="inline-flex h-11 items-center justify-center rounded-lg bg-brand-600 px-6 text-sm font-semibold text-white hover:bg-brand-700"
+        >
+          {t("billing.checkout.viewCoursePage")}
         </Link>
       </div>
     );
@@ -430,6 +508,70 @@ export default function Checkout() {
     );
   }
 
+  if (user?.role === "student") {
+    if (publicLoading) {
+      return (
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col items-center justify-center px-4">
+          <div className="w-8 h-8 border-2 border-brand-600 border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t("billing.checkout.checkingEnrollment")}</p>
+        </div>
+      );
+    }
+    if (publicError) {
+      return (
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col items-center justify-center px-4 py-16">
+          <p className="text-red-600 dark:text-red-400 font-medium text-center">{t("billing.checkout.freeCourseLoadError")}</p>
+          <Link
+            to={paths.home}
+            className="mt-4 text-sm text-brand-600 dark:text-brand-400 hover:underline"
+          >
+            {t("billing.checkout.backHome")}
+          </Link>
+        </div>
+      );
+    }
+    if (isFreeCourse) {
+      return (
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-12 px-4">
+          <div className="max-w-md mx-auto text-center mb-8">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">{t("billing.checkout.checkoutTitle")}</h1>
+            {courseTitle ? (
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{courseTitle}</p>
+            ) : null}
+          </div>
+          <div className="max-w-md mx-auto rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/90 dark:bg-emerald-950/25 p-6 text-center space-y-4">
+            <Gift className="w-12 h-12 mx-auto text-emerald-600 dark:text-emerald-400" aria-hidden />
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t("coursePublic.enrollFreeCheckoutTitle")}</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-300">{t("coursePublic.enrollFreeCheckoutBlurb")}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{t("billing.checkout.enrollFreeHint")}</p>
+            <button
+              type="button"
+              disabled={enrollingFree}
+              onClick={async () => {
+                try {
+                  await enrollFree(courseId);
+                  toast.success(t("billing.checkout.freeEnrolledToast"));
+                  navigate(paths.courseWorkspace(courseId));
+                } catch (err) {
+                  toast.error(err?.response?.data?.message || "Could not enroll");
+                }
+              }}
+              className="w-full h-11 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {enrollingFree ? "…" : t("billing.checkout.enrollFree")}
+            </button>
+            <Link
+              to={paths.course(courseId)}
+              className="block text-sm text-brand-600 dark:text-brand-400 hover:underline"
+            >
+              {t("billing.checkout.viewCoursePage")}
+            </Link>
+          </div>
+        </div>
+      );
+    }
+  }
+
   const stripeError = mode === "card" && isError;
   if (stripeError) {
     const msg =
@@ -459,6 +601,49 @@ export default function Checkout() {
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{courseTitle}</p>
         ) : null}
       </div>
+
+      {!enrollmentLoading && !isEnrolled && user?.role === "student" ? (
+        <div className="max-w-md mx-auto mb-6 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Percent className="w-4 h-4 text-brand-500 shrink-0" aria-hidden />
+            <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+              {t("billing.checkout.couponOptional")}
+            </span>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              value={couponDraft}
+              onChange={(e) => setCouponDraft(e.target.value)}
+              disabled={Boolean(appliedCoupon)}
+              placeholder={t("billing.checkout.couponPlaceholder")}
+              className="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm uppercase disabled:opacity-60"
+            />
+            {appliedCoupon ? (
+              <button
+                type="button"
+                onClick={onRemoveCoupon}
+                className="shrink-0 h-10 px-4 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                {t("billing.checkout.couponRemove")}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onApplyCoupon}
+                disabled={validateCoupon.isPending}
+                className="shrink-0 h-10 px-4 rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-semibold disabled:opacity-50"
+              >
+                {validateCoupon.isPending ? "…" : t("billing.checkout.couponApply")}
+              </button>
+            )}
+          </div>
+          {appliedCoupon ? (
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2 font-medium">
+              {appliedCoupon}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="max-w-md mx-auto flex rounded-xl border border-gray-200 dark:border-gray-800 p-1 bg-gray-100/80 dark:bg-gray-900/80 mb-8">
         <button
@@ -495,9 +680,15 @@ export default function Checkout() {
         </p>
       ) : null}
 
+      {mode === "card" && publishableKey && cardAmountUsd != null && !isLoading && !isError ? (
+        <p className="max-w-md mx-auto text-center text-sm font-semibold text-gray-800 dark:text-gray-200 mb-4">
+          {t("billing.checkout.amountDue")}: {money(cardAmountUsd)}
+        </p>
+      ) : null}
+
       {mode === "card" && publishableKey ? (
         clientSecret && stripePromise ? (
-          <Elements stripe={stripePromise} options={{ clientSecret }}>
+          <Elements key={clientSecret} stripe={stripePromise} options={{ clientSecret }}>
             <CheckoutForm />
           </Elements>
         ) : (
@@ -509,7 +700,7 @@ export default function Checkout() {
           </div>
         )
       ) : (
-        <ManualPaymentSection courseId={courseId} courseTitle={courseTitle} />
+        <ManualPaymentSection courseId={courseId} courseTitle={courseTitle} couponCode={appliedCoupon} />
       )}
     </div>
   );

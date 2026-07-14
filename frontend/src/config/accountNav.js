@@ -13,7 +13,7 @@ import {
   RefreshCcw,
   SlidersHorizontal,
   Landmark,
-  ShieldAlert,
+  Percent,
 } from "lucide-react";
 import { paths } from "./paths";
 import i18n from "../i18n";
@@ -38,8 +38,8 @@ export function getAccountNavItems(user) {
       { to: paths.adminCourses, label: t("accountNav.courses"), icon: BookOpen, end: false },
       { to: paths.adminFinance, label: t("accountNav.finance"), icon: Banknote, end: false },
       { to: paths.adminManualPayments, label: t("accountNav.manualPayments"), icon: Landmark, end: false },
+      { to: paths.adminCoupons, label: t("accountNav.coupons"), icon: Percent, end: false },
       { to: paths.adminRefunds, label: t("accountNav.refunds"), icon: RefreshCcw, end: false },
-      { to: paths.adminChargebacks, label: t("accountNav.chargebacks"), icon: ShieldAlert, end: false },
       { to: paths.adminFinancialSettings, label: t("accountNav.financialPolicy"), icon: SlidersHorizontal, end: false },
       { to: paths.adminInAppAnnouncements, label: t("accountNav.sendAnnouncement"), icon: Megaphone, end: false },
       { to: paths.profile, label: t("accountNav.myAccount"), icon: User, end: true },

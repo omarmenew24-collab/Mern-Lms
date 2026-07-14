@@ -175,6 +175,18 @@ export const useUpdateCourse = (courseId) => {
     if (payload.ratingsDisabled !== undefined) {
       formData.append("ratingsDisabled", String(Boolean(payload.ratingsDisabled)));
     }
+    if (payload.isFree !== undefined) {
+      formData.append("isFree", String(Boolean(payload.isFree)));
+    }
+    if (payload.trailerTitle !== undefined) {
+      formData.append("trailerTitle", String(payload.trailerTitle ?? ""));
+    }
+    if (payload.trailerVideoUrl !== undefined) {
+      formData.append("trailerVideoUrl", String(payload.trailerVideoUrl ?? ""));
+    }
+    if (payload.trailerVimeoVideoId !== undefined) {
+      formData.append("trailerVimeoVideoId", String(payload.trailerVimeoVideoId ?? ""));
+    }
 
     if (payload.promotionEnabled !== undefined) {
       formData.append("promotionEnabled", String(Boolean(payload.promotionEnabled)));
@@ -244,65 +256,37 @@ export const useSetCoursePublished = (courseId) => {
 };
 
 /* =========================
-   TEACHER: SUBMIT FOR REVIEW
+   TEACHER / ADMIN: PUBLISH COURSE (no review workflow)
 ========================= */
-export const useSubmitCourseForReview = (courseId) => {
+export const usePublishCourse = (courseId) => {
   const queryClient = useQueryClient();
 
-  const submitCourse = async () => {
-    const res = await axiosInstance.post(`/courses/${courseId}/submit-review`);
+  const publish = async () => {
+    const res = await axiosInstance.post(`/courses/${courseId}/publish`);
     return res.data;
   };
 
-  const { mutateAsync: submitForReview, isPending, isError } = useMutation({
-    mutationFn: submitCourse,
+  const { mutateAsync: publishCourse, isPending, isError } = useMutation({
+    mutationFn: publish,
     onSuccess: () => {
-      toast.success("Submitted for review");
+      toast.success("Course published");
       queryClient.invalidateQueries({ queryKey: ["course", courseId] });
       queryClient.invalidateQueries({ queryKey: ["courses", "teacher"] });
       queryClient.invalidateQueries({ queryKey: ["admin-courses-all"] });
+      queryClient.invalidateQueries({ queryKey: ["public-course", courseId] });
+      queryClient.invalidateQueries({ queryKey: ["courses"] });
     },
     onError: (error) => {
       const checklist = error.response?.data?.checklist;
       if (Array.isArray(checklist) && checklist.length) {
         toast.error(checklist[0]);
       } else {
-        toast.error(error.response?.data?.message || "Failed to submit for review");
+        toast.error(error.response?.data?.message || "Failed to publish course");
       }
     },
   });
 
-  return { submitForReview, isPending, isError };
-};
-
-/* =========================
-   ADMIN: REVIEW COURSE
-========================= */
-export const useReviewCourse = (courseId) => {
-  const queryClient = useQueryClient();
-
-  const review = async ({ action, reviewNote }) => {
-    const res = await axiosInstance.patch(`/courses/${courseId}/review`, {
-      action,
-      reviewNote,
-    });
-    return res.data;
-  };
-
-  const { mutateAsync: reviewCourse, isPending, isError } = useMutation({
-    mutationFn: review,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["course", courseId] });
-      queryClient.invalidateQueries({ queryKey: ["courses"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-courses-all"] });
-      toast.success("Course review saved");
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || "Failed to review course");
-    },
-  });
-
-  return { reviewCourse, isPending, isError };
+  return { publishCourse, isPending, isError };
 };
 
 /* =========================
@@ -380,6 +364,39 @@ export const useGetCoursesByTeacher = (teacherId) => {
   return { coursesbyteacher, isLoading, isError };
 };
 
+/** Student: learning hub dashboard — progress, deadlines, continue learning. */
+export const useStudentDashboard = () => {
+  const token = useAuthStore((state) => state.accessToken);
+  const user = useUserStore((state) => state.user);
+
+  return useQuery({
+    queryKey: ["student-dashboard", user?._id],
+    queryFn: async () => {
+      const res = await axiosInstance.get("/courses/student/dashboard");
+      return res.data;
+    },
+    enabled: Boolean(user?._id && user?.role === "student" && token),
+    staleTime: 30_000,
+  });
+};
+
+/** Teaching hub dashboard — stats, course cards, Q&A and drafts. */
+export const useTeacherDashboard = (teacherId) => {
+  const token = useAuthStore((state) => state.accessToken);
+
+  return useQuery({
+    queryKey: ["teacher-dashboard", teacherId],
+    queryFn: async () => {
+      const res = await axiosInstance.get("/courses/teacher/dashboard", {
+        params: { teacherId },
+      });
+      return res.data;
+    },
+    enabled: Boolean(teacherId && token),
+    staleTime: 30_000,
+  });
+};
+
 /* =========================
    COURSES BY STUDENT
 ========================= */
@@ -398,6 +415,26 @@ export const useGetCoursesByStudent = () => {
     queryKey: ["courses", "enrolled"], // Simplified key
     queryFn: getCoursesByStudent,
     // No 'enabled' check needed if we rely on the user being logged in
+  });
+
+  return { coursesbystudent, isLoading, isError };
+};
+
+/** Admin user details: enrolled courses for a specific user (not the logged-in account). */
+export const useAdminGetStudentEnrolledCourses = (userId) => {
+  const token = useAuthStore((state) => state.accessToken);
+
+  const {
+    data: coursesbystudent = [],
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["courses", "enrolled", "admin", userId],
+    queryFn: async () => {
+      const res = await axiosInstance.get(`/users/${userId}/enrolled-courses`);
+      return res.data.courses ?? [];
+    },
+    enabled: Boolean(userId && token),
   });
 
   return { coursesbystudent, isLoading, isError };
@@ -506,6 +543,92 @@ export const useGetBulkProgress = (courseId) => {
   return { bulkprogressData, isbulkLoading, isbulkError };
 };
 
+/** Owner or admin: enriched roster snapshots for expandable learner details. */
+export const useCourseRosterLearnerSnapshots = (courseId, enabled = true) => {
+  const token = useAuthStore((state) => state.accessToken);
+  return useQuery({
+    queryKey: ["course-roster-snapshots", courseId],
+    queryFn: async () => {
+      const res = await axiosInstance.get(`/courses/${courseId}/roster-learners`);
+      return res.data.snapshots ?? [];
+    },
+    enabled: Boolean(courseId && enabled && token),
+    staleTime: 30_000,
+  });
+};
+
+/** Owner or admin: per-level and per-lecture curriculum analytics. */
+export const useCourseCurriculumAnalytics = (courseId, enabled = true) => {
+  const token = useAuthStore((state) => state.accessToken);
+  return useQuery({
+    queryKey: ["course-curriculum-analytics", courseId],
+    queryFn: async () => {
+      const res = await axiosInstance.get(`/courses/${courseId}/curriculum-analytics`);
+      return res.data;
+    },
+    enabled: Boolean(courseId && enabled && token),
+    staleTime: 30_000,
+  });
+};
+
+/** Owner or admin: actionable activity feed for the Activity workspace tab. */
+export const useCourseInstructorActivity = (courseId, enabled = true) => {
+  const token = useAuthStore((state) => state.accessToken);
+  return useQuery({
+    queryKey: ["course-instructor-activity", courseId],
+    queryFn: async () => {
+      const res = await axiosInstance.get(`/courses/${courseId}/instructor-activity`);
+      return res.data;
+    },
+    enabled: Boolean(courseId && enabled && token),
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+};
+
+/** Owner or admin: per-type and per-task analytics for the tasks workspace. */
+export const useCourseTaskAnalytics = (courseId, enabled = true) => {
+  const token = useAuthStore((state) => state.accessToken);
+  return useQuery({
+    queryKey: ["course-task-analytics", courseId],
+    queryFn: async () => {
+      const res = await axiosInstance.get(`/courses/${courseId}/task-analytics`);
+      return res.data;
+    },
+    enabled: Boolean(courseId && enabled && token),
+    staleTime: 30_000,
+  });
+};
+
+/** Staff-only: learner summary for course student detail. */
+export const useStaffLearnerEnrollmentSnapshot = (courseId, studentId) => {
+  const token = useAuthStore((state) => state.accessToken);
+  return useQuery({
+    queryKey: ["learner-snapshot", courseId, studentId],
+    queryFn: async () => {
+      const res = await axiosInstance.get(
+        `/courses/${courseId}/learners/${studentId}/snapshot`,
+      );
+      return res.data.snapshot ?? null;
+    },
+    enabled: Boolean(courseId && studentId && token),
+  });
+};
+
+/** Admin: all enrollment snapshots for a user. */
+export const useAdminUserLearnerSnapshots = (userId) => {
+  const token = useAuthStore((state) => state.accessToken);
+  return useQuery({
+    queryKey: ["admin-user-learner-snapshots", userId],
+    queryFn: async () => {
+      const res = await axiosInstance.get(`/users/${userId}/learner-snapshots`);
+      return res.data.snapshots ?? [];
+    },
+    enabled: Boolean(userId && token),
+    staleTime: 30_000,
+  });
+};
+
 
 export const useToggleCertificatePermission = () => {
   const queryClient = useQueryClient();
@@ -522,10 +645,10 @@ export const useToggleCertificatePermission = () => {
     }
 
     // Invalidate queries to refresh the UI data
-    queryClient.invalidateQueries(["courseProgress", courseId]);
-    queryClient.invalidateQueries(["courseProgress", "bulk", courseId]);
+    queryClient.invalidateQueries({ queryKey: ["courseprogress", courseId] });
+    queryClient.invalidateQueries({ queryKey: ["courseProgress", "bulk", courseId] });
 
-    return res.data.progress;
+    return res.data;
   };
 
   const {
@@ -537,6 +660,49 @@ export const useToggleCertificatePermission = () => {
 
   return { togglecertpermission, isPending, isError, isSuccess };
 };
+
+/**
+ * Download server-generated certificate PDF (Bearer auth).
+ * @param {{ courseId: string, studentId?: string, queryClient?: import('@tanstack/react-query').QueryClient }} opts
+ */
+export async function downloadCourseCertificatePdf({ courseId, studentId, queryClient }) {
+  try {
+    const res = await axiosInstance.get(`/courses/${courseId}/certificate/pdf`, {
+      responseType: "blob",
+      params: studentId ? { studentId } : {},
+    });
+    const disposition = res.headers["content-disposition"] || "";
+    const m = disposition.match(/filename="([^"]+)"/i);
+    const filename = m?.[1] || `Certificate-${courseId}.pdf`;
+    const blob = new Blob([res.data], { type: "application/pdf" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    toast.success("Certificate downloaded");
+    if (queryClient) {
+      queryClient.invalidateQueries({ queryKey: ["courseprogress", courseId] });
+      queryClient.invalidateQueries({ queryKey: ["courseProgress", "bulk", courseId] });
+    }
+  } catch (err) {
+    let msg = err?.response?.data?.message;
+    if (err?.response?.data instanceof Blob) {
+      try {
+        const t = await err.response.data.text();
+        const j = JSON.parse(t);
+        if (j?.message) msg = j.message;
+      } catch {
+        /* ignore */
+      }
+    }
+    toast.error(msg || "Could not download certificate");
+    throw err;
+  }
+}
 
 /** Per-teacher category labels (merged with categories already used on courses). */
 export const fetchCourseCategories = async (teacherIdForAdmin) => {

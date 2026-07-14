@@ -13,14 +13,15 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import { getCloudinaryImageConfig, uploadImageToCloudinary } from "../../lib/cloudinaryClientUpload";
 
 const TYPES = [
-  { value: "heading", label: "Heading", icon: Heading },
-  { value: "paragraph", label: "Paragraph", icon: Text },
-  { value: "bullets", label: "Bullet list", icon: List },
-  { value: "image", label: "Image (full width)", icon: ImageIcon },
-  { value: "split", label: "Image + text (side by side)", icon: LayoutGrid },
+  { value: "heading", labelKey: "workspace.aboutEditor.typeHeading", icon: Heading },
+  { value: "paragraph", labelKey: "workspace.aboutEditor.typeParagraph", icon: Text },
+  { value: "bullets", labelKey: "workspace.aboutEditor.typeBullets", icon: List },
+  { value: "image", labelKey: "workspace.aboutEditor.typeImage", icon: ImageIcon },
+  { value: "split", labelKey: "workspace.aboutEditor.typeSplit", icon: LayoutGrid },
 ];
 
 function emptyBlock(type) {
@@ -35,7 +36,9 @@ function emptyBlock(type) {
  * @param {{ value: object[], onChange: (b: object[]) => void, disabled?: boolean, defaultTemplate?: object[] }} props
  */
 export default function AboutPageBlocksEditor({ value, onChange, disabled, defaultTemplate = [] }) {
+  const { t: tr } = useTranslation();
   const uploadIdxRef = useRef(null);
+  const uploadKindRef = useRef(null);
   const fileRef = useRef(null);
 
   const setBlock = (i, next) => {
@@ -61,13 +64,13 @@ export default function AboutPageBlocksEditor({ value, onChange, disabled, defau
   const loadTemplate = () => {
     if (!defaultTemplate || !defaultTemplate.length) return;
     onChange(JSON.parse(JSON.stringify(defaultTemplate)));
-    toast.success("Example layout loaded — save when ready.");
+    toast.success(tr("workspace.aboutEditor.exampleLoaded"));
   };
 
   const onPickFile = (blockIndex, kind) => {
     const { isConfigured } = getCloudinaryImageConfig();
     if (!isConfigured) {
-      toast.error("Add VITE_CLOUDINARY_IMAGE_UPLOAD_PRESET to .env to upload, or paste an image URL.");
+      toast.error(tr("workspace.aboutEditor.presetMissing"));
       return;
     }
     uploadIdxRef.current = blockIndex;
@@ -82,11 +85,11 @@ export default function AboutPageBlocksEditor({ value, onChange, disabled, defau
     const kind = uploadKindRef.current;
     if (!file || i == null || i < 0) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("Choose an image file");
+      toast.error(tr("workspace.aboutEditor.chooseImage"));
       return;
     }
     if (file.size > 6 * 1024 * 1024) {
-      toast.error("Image is too large (max 6MB)");
+      toast.error(tr("workspace.aboutEditor.imageTooLarge"));
       return;
     }
     const block = value[i];
@@ -106,9 +109,9 @@ export default function AboutPageBlocksEditor({ value, onChange, disabled, defau
           imageAlt: block.imageAlt || file.name.replace(/\.[^.]+$/, ""),
         });
       }
-      toast.success("Image uploaded");
+      toast.success(tr("workspace.aboutEditor.imageUploaded"));
     } catch (err) {
-      toast.error(err?.message || "Upload failed");
+      toast.error(err?.message || tr("workspace.aboutEditor.uploadFailed"));
     } finally {
       uploadIdxRef.current = null;
     }
@@ -120,7 +123,7 @@ export default function AboutPageBlocksEditor({ value, onChange, disabled, defau
 
       {value.length === 0 ? (
         <p className="text-xs text-gray-500 dark:text-gray-400 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 px-3 py-4 text-center">
-          Add sections below. Use <strong>Image + text</strong> for a two-column block, or <strong>Image (full width)</strong> for a wide banner. If this list is empty, the plain-text fallback or platform default is used.
+          {tr("workspace.aboutEditor.emptyPrefix")}<strong>{tr("workspace.aboutEditor.typeSplit")}</strong>{tr("workspace.aboutEditor.emptyMid")}<strong>{tr("workspace.aboutEditor.typeImage")}</strong>{tr("workspace.aboutEditor.emptySuffix")}
         </p>
       ) : null}
 
@@ -131,41 +134,41 @@ export default function AboutPageBlocksEditor({ value, onChange, disabled, defau
             className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-950/40 p-3"
           >
             <div className="flex items-start gap-2">
-              <div className="pt-0.5 text-gray-400" title="Block">
+              <div className="pt-0.5 text-gray-400" title={tr("workspace.aboutEditor.block")}>
                 <GripVertical className="w-4 h-4" aria-hidden />
               </div>
               <div className="min-w-0 flex-1 space-y-2">
                 {b.type === "heading" && (
                   <>
-                    <label className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Heading</label>
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">{tr("workspace.aboutEditor.typeHeading")}</label>
                     <input
                       type="text"
                       value={b.heading || ""}
                       disabled={disabled}
                       onChange={(e) => setBlock(i, { ...b, heading: e.target.value.slice(0, 200) })}
                       className="w-full h-9 px-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900"
-                      placeholder="Section title"
+                      placeholder={tr("workspace.aboutEditor.sectionTitle")}
                     />
                   </>
                 )}
 
                 {b.type === "paragraph" && (
                   <>
-                    <label className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Text</label>
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">{tr("workspace.aboutEditor.textLabel")}</label>
                     <textarea
                       value={b.text || ""}
                       disabled={disabled}
                       onChange={(e) => setBlock(i, { ...b, text: e.target.value.slice(0, 8000) })}
                       rows={4}
                       className="w-full text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1.5"
-                      placeholder="Paragraph…"
+                      placeholder={tr("workspace.aboutEditor.paragraphPh")}
                     />
                   </>
                 )}
 
                 {b.type === "bullets" && (
                   <>
-                    <label className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">List title (optional)</label>
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">{tr("workspace.aboutEditor.listTitle")}</label>
                     <input
                       type="text"
                       value={b.title || ""}
@@ -173,7 +176,7 @@ export default function AboutPageBlocksEditor({ value, onChange, disabled, defau
                       onChange={(e) => setBlock(i, { ...b, title: e.target.value.slice(0, 200) })}
                       className="w-full h-8 px-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900"
                     />
-                    <label className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Points (one per line)</label>
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">{tr("workspace.aboutEditor.points")}</label>
                     <textarea
                       value={Array.isArray(b.items) ? b.items.join("\n") : ""}
                       disabled={disabled}
@@ -189,7 +192,7 @@ export default function AboutPageBlocksEditor({ value, onChange, disabled, defau
 
                 {b.type === "image" && (
                   <>
-                    <label className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Image URL</label>
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">{tr("workspace.aboutEditor.imageUrl")}</label>
                     <input
                       type="url"
                       value={b.imageUrl || ""}
@@ -206,7 +209,7 @@ export default function AboutPageBlocksEditor({ value, onChange, disabled, defau
                         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
                       >
                         <Upload className="w-3.5 h-3.5" />
-                        Upload
+                        {tr("workspace.aboutEditor.upload")}
                       </button>
                     </div>
                     <input
@@ -215,7 +218,7 @@ export default function AboutPageBlocksEditor({ value, onChange, disabled, defau
                       disabled={disabled}
                       onChange={(e) => setBlock(i, { ...b, imageAlt: e.target.value.slice(0, 200) })}
                       className="w-full h-8 px-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900"
-                      placeholder="Image description (accessibility)"
+                      placeholder={tr("workspace.aboutEditor.imageAltAccessibility")}
                     />
                     {b.imageUrl ? (
                       <img
@@ -229,8 +232,8 @@ export default function AboutPageBlocksEditor({ value, onChange, disabled, defau
 
                 {b.type === "split" && (
                   <>
-                    <p className="text-[10px] text-gray-500">Photo beside text (stacks on small screens)</p>
-                    <label className="text-[10px] font-semibold uppercase text-gray-500">Image URL</label>
+                    <p className="text-[10px] text-gray-500">{tr("workspace.aboutEditor.photoBeside")}</p>
+                    <label className="text-[10px] font-semibold uppercase text-gray-500">{tr("workspace.aboutEditor.imageUrl")}</label>
                     <input
                       type="url"
                       value={b.imageUrl || ""}
@@ -246,7 +249,7 @@ export default function AboutPageBlocksEditor({ value, onChange, disabled, defau
                         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-violet-600 text-white"
                       >
                         <Upload className="w-3.5 h-3.5" />
-                        Upload
+                        {tr("workspace.aboutEditor.upload")}
                       </button>
                     </div>
                     <input
@@ -255,9 +258,9 @@ export default function AboutPageBlocksEditor({ value, onChange, disabled, defau
                       disabled={disabled}
                       onChange={(e) => setBlock(i, { ...b, imageAlt: e.target.value.slice(0, 200) })}
                       className="w-full h-8 px-2 text-sm rounded border"
-                      placeholder="Image description"
+                      placeholder={tr("workspace.aboutEditor.imageDescription")}
                     />
-                    <label className="text-[10px] font-semibold uppercase text-gray-500">Side heading (optional)</label>
+                    <label className="text-[10px] font-semibold uppercase text-gray-500">{tr("workspace.aboutEditor.sideHeading")}</label>
                     <input
                       type="text"
                       value={b.heading || ""}
@@ -265,7 +268,7 @@ export default function AboutPageBlocksEditor({ value, onChange, disabled, defau
                       onChange={(e) => setBlock(i, { ...b, heading: e.target.value.slice(0, 200) })}
                       className="w-full h-9 px-2 text-sm rounded border"
                     />
-                    <label className="text-[10px] font-semibold uppercase text-gray-500">Body text</label>
+                    <label className="text-[10px] font-semibold uppercase text-gray-500">{tr("workspace.aboutEditor.bodyText")}</label>
                     <textarea
                       value={b.text || ""}
                       disabled={disabled}
@@ -317,18 +320,18 @@ export default function AboutPageBlocksEditor({ value, onChange, disabled, defau
 
       <div className="flex flex-wrap items-center gap-2 pt-1">
         <div className="flex flex-wrap gap-1">
-          {TYPES.map((t) => {
-            const Icon = t.icon;
+          {TYPES.map((type) => {
+            const Icon = type.icon;
             return (
               <button
-                key={t.value}
+                key={type.value}
                 type="button"
                 disabled={disabled}
-                onClick={() => add(t.value)}
+                onClick={() => add(type.value)}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium border border-gray-300 dark:border-gray-600"
               >
                 <Icon className="w-3.5 h-3.5" />
-                {t.label}
+                {tr(type.labelKey)}
               </button>
             );
           })}
@@ -340,7 +343,7 @@ export default function AboutPageBlocksEditor({ value, onChange, disabled, defau
           className="inline-flex items-center gap-1 text-xs text-violet-600 font-medium hover:underline"
         >
           <Plus className="w-3.5 h-3.5" />
-          Load example
+          {tr("workspace.aboutEditor.loadExample")}
         </button>
       </div>
     </div>

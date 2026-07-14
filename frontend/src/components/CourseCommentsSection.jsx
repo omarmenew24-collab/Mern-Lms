@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, CircleHelp } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { formatDateTime } from "../lib/i18nFormatters";
 import useUserStore from "../store/userstore";
@@ -43,8 +43,10 @@ function CommentCard({
   deleteComment,
   onReply,
   replyingToId,
+  presentation = "comments",
 }) {
   const { t, i18n } = useTranslation();
+  const qa = presentation === "qa";
   const children = childMap.get(String(c._id)) || [];
 
   return (
@@ -76,10 +78,13 @@ function CommentCard({
               type="button"
               disabled={isDeleting}
               onClick={async () => {
-                const ok = await confirmAction("Delete this comment?", {
-                  destructive: true,
-                  confirmLabel: "Delete",
-                });
+                const ok = await confirmAction(
+                  qa ? "Remove this question or reply?" : "Delete this comment?",
+                  {
+                    destructive: true,
+                    confirmLabel: "Delete",
+                  },
+                );
                 if (!ok) return;
                 try {
                   await deleteComment(c._id);
@@ -104,7 +109,13 @@ function CommentCard({
                   : "text-gray-500 hover:text-brand-600 dark:text-gray-400 dark:hover:text-brand-400"
               }`}
             >
-              {replyingToId === String(c._id) ? t("comments.replyingBtnActive") : t("comments.replyBtn")}
+              {replyingToId === String(c._id)
+                ? qa
+                  ? "Answering…"
+                  : t("comments.replyingBtnActive")
+                : qa
+                  ? "Reply"
+                  : t("comments.replyBtn")}
             </button>
           </div>
         )}
@@ -124,6 +135,7 @@ function CommentCard({
               deleteComment={deleteComment}
               onReply={onReply}
               replyingToId={replyingToId}
+              presentation={presentation}
             />
           ))}
         </div>
@@ -132,7 +144,8 @@ function CommentCard({
   );
 }
 
-export default function CourseCommentsSection({ courseId, courseTeacherId, title }) {
+/** @param presentation "qa" — copy for instructor course workspace Q&A tab only (URLs & API unchanged). */
+export default function CourseCommentsSection({ courseId, courseTeacherId, title, presentation = "comments" }) {
   const { t } = useTranslation();
   const user = useUserStore((state) => state.user);
   const { comments, isLoading, isError, commentPolicy } = useListCourseComments(courseId, 30);
@@ -166,6 +179,9 @@ export default function CourseCommentsSection({ courseId, courseTeacherId, title
     return false;
   }, [user, courseTeacherId]);
 
+  const qa = presentation === "qa";
+  const HeaderIcon = qa ? CircleHelp : MessageCircle;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const content = text.trim();
@@ -188,7 +204,7 @@ export default function CourseCommentsSection({ courseId, courseTeacherId, title
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
       <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2.5">
-        <MessageCircle className="w-4 h-4 text-brand-500" />
+        <HeaderIcon className="w-4 h-4 text-brand-500 shrink-0" aria-hidden />
         <h2 className="text-sm font-bold text-gray-900 dark:text-white">{title || t("coursePublic.commentsTitle")}</h2>
         <span className="text-xs text-gray-400 dark:text-gray-500">({comments?.length || 0})</span>
       </div>
@@ -208,7 +224,8 @@ export default function CourseCommentsSection({ courseId, courseTeacherId, title
             {replyingTo && (
               <div className="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-gray-300">
                 <span>
-                  {t("comments.replyingLabel")} <span className="font-semibold">{replyLabel}</span>
+                  {qa ? "Replying to" : t("comments.replyingLabel")}{" "}
+                  <span className="font-semibold">{replyLabel}</span>
                 </span>
                 <button
                   type="button"
@@ -227,7 +244,15 @@ export default function CourseCommentsSection({ courseId, courseTeacherId, title
               onChange={(e) => setText(e.target.value)}
               rows={2}
               maxLength={1000}
-              placeholder={replyingTo ? t("comments.replyPlaceholder") : t("comments.commentPlaceholder")}
+              placeholder={
+                replyingTo
+                  ? qa
+                    ? "Write your reply…"
+                    : t("comments.replyPlaceholder")
+                  : qa
+                    ? "Ask a question (instructor and enrolled students can see this)…"
+                    : t("comments.commentPlaceholder")
+              }
               className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-900 dark:text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent placeholder-gray-400 transition-shadow"
             />
             <div className="flex items-center justify-between">
@@ -237,18 +262,22 @@ export default function CourseCommentsSection({ courseId, courseTeacherId, title
                 disabled={isCreating || !text.trim()}
                 className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {replyingTo ? t("comments.postReply") : t("comments.post")}
+                {replyingTo ? (qa ? "Post reply" : t("comments.postReply")) : qa ? "Post" : t("comments.post")}
               </button>
             </div>
           </form>
         ) : !user ? (
-          <p className="text-xs text-gray-400 dark:text-gray-500">{t("comments.signInPrompt")}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            {qa ? "Sign in to ask a question or join the discussion." : t("comments.signInPrompt")}
+          </p>
         ) : null}
 
         {isLoading && <p className="text-xs text-gray-400">{t("comments.loading")}</p>}
         {isError && <p className="text-xs text-red-500">{t("comments.error")}</p>}
         {!isLoading && !comments?.length && (
-          <p className="text-xs text-gray-400 italic">{t("comments.empty")}</p>
+          <p className="text-xs text-gray-400 italic">
+            {qa ? "No questions yet. Students can post from the public course page or here when enrolled." : t("comments.empty")}
+          </p>
         )}
 
         <div className="space-y-3">
@@ -265,6 +294,7 @@ export default function CourseCommentsSection({ courseId, courseTeacherId, title
               deleteComment={deleteComment}
               onReply={startReply}
               replyingToId={replyingTo}
+              presentation={presentation}
             />
           ))}
         </div>

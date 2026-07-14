@@ -1,5 +1,6 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, Fragment } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   Users,
   ChevronDown,
@@ -11,8 +12,70 @@ import {
 } from "lucide-react";
 import { UseGetAllUsers } from "../../api/admin";
 import ExportCsvButton from "../admin/ExportCsvButton";
+import LearnerEnrollmentDetailPanel from "./LearnerEnrollmentDetailPanel";
 
 const toId = (id) => String(id ?? "");
+
+/** Teacher roster segment for filtering enrolled learners. */
+const ROSTER_STATUS_FILTERS = [
+  { id: "all", labelKey: "workspace.studentsSection.statusAll" },
+  { id: "active", labelKey: "workspace.studentsSection.statusActive" },
+  { id: "inactive", labelKey: "workspace.studentsSection.statusInactive" },
+  { id: "in_progress", labelKey: "workspace.studentsSection.statusInProgress" },
+  { id: "completed", labelKey: "workspace.studentsSection.statusCompleted" },
+  { id: "not_started", labelKey: "workspace.studentsSection.statusNotStarted" },
+];
+
+function classifyRosterStudent(student, progressRecord, snapshot) {
+  const progress = Math.min(
+    100,
+    Math.max(
+      0,
+      Number(progressRecord?.progress ?? snapshot?.completionPercent ?? 0),
+    ),
+  );
+  const isCompleted = Boolean(progressRecord?.isCompleted || progress >= 100);
+  const isSuspended = student?.status === "suspended";
+  const visits = Number(snapshot?.workspaceVisitCount ?? 0);
+  const hasStarted = progress > 0 || visits > 0;
+
+  if (isSuspended) return "inactive";
+  if (isCompleted) return "completed";
+  if (progress > 0) return "in_progress";
+  if (!hasStarted) return "not_started";
+  return "active";
+}
+
+function rosterStatusMatchesFilter(status, filterId) {
+  if (filterId === "all") return true;
+  if (filterId === "active") return status === "in_progress" || status === "active";
+  if (filterId === "inactive") return status === "inactive" || status === "not_started";
+  return status === filterId;
+}
+
+const ROSTER_STATUS_META = {
+  completed: {
+    labelKey: "workspace.studentsSection.statusCompleted",
+    className:
+      "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200",
+  },
+  in_progress: {
+    labelKey: "workspace.studentsSection.statusInProgress",
+    className: "bg-brand-100 text-brand-800 dark:bg-brand-900/40 dark:text-brand-200",
+  },
+  active: {
+    labelKey: "workspace.studentsSection.statusActive",
+    className: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200",
+  },
+  not_started: {
+    labelKey: "workspace.studentsSection.statusNotStarted",
+    className: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  },
+  inactive: {
+    labelKey: "workspace.studentsSection.statusInactive",
+    className: "bg-amber-100 text-amber-900 dark:bg-amber-900/35 dark:text-amber-200",
+  },
+};
 
 /**
  * Enrolled students table for a course. If the parent passes `onBulkEnroll`, an admin bulk-enroll
@@ -29,11 +92,17 @@ export default function StudentsSection({
   adminRosterExportCourseId,
   /** Teacher workspace: link to send in-app announcements (e.g. paths.sendAnnouncement). */
   announcementHref,
+  /** From GET /courses/:courseId/roster-learners (admin / course owner). */
+  learnerSnapshots = [],
+  learnerSnapshotsLoading = false,
 }) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
+  const [expandedStudentId, setExpandedStudentId] = useState(null);
   /** Roster filter (teacher view); separate from bulk-enroll search. */
   const [rosterSearch, setRosterSearch] = useState("");
+  const [rosterStatusFilter, setRosterStatusFilter] = useState("all");
 
   // --- Bulk enrollment only (ignored when `onBulkEnroll` is omitted) ---
   const [search, setSearch] = useState("");
@@ -49,18 +118,62 @@ export default function StudentsSection({
     [students],
   );
 
+  const snapshotByStudentId = useMemo(() => {
+    const m = new Map();
+    for (const s of learnerSnapshots || []) {
+      if (s?.studentId != null) m.set(String(s.studentId), s);
+    }
+    return m;
+  }, [learnerSnapshots]);
+
+  const rosterRows = useMemo(() => {
+    return validStudents.map((student) => {
+      const sid = toId(student._id);
+      const record = bulkprogressData?.find((item) => toId(item.student) === sid);
+      const snap = snapshotByStudentId.get(sid);
+      const status = classifyRosterStudent(student, record, snap);
+      const progress = Math.min(
+        100,
+        Math.max(
+          0,
+          Number(record?.progress ?? snap?.completionPercent ?? 0),
+        ),
+      );
+      return { student, sid, record, snap, status, progress };
+    });
+  }, [validStudents, bulkprogressData, snapshotByStudentId]);
+
+  const rosterStatusCounts = useMemo(() => {
+    const counts = Object.fromEntries(ROSTER_STATUS_FILTERS.map((f) => [f.id, 0]));
+    counts.all = rosterRows.length;
+    for (const row of rosterRows) {
+      for (const filter of ROSTER_STATUS_FILTERS) {
+        if (filter.id === "all") continue;
+        if (rosterStatusMatchesFilter(row.status, filter.id)) {
+          counts[filter.id] += 1;
+        }
+      }
+    }
+    return counts;
+  }, [rosterRows]);
+
   const filteredRosterStudents = useMemo(() => {
-    if (onBulkEnroll) return validStudents;
+    let rows = rosterRows;
+    if (onBulkEnroll) return rows;
+    if (rosterStatusFilter !== "all") {
+      rows = rows.filter((row) =>
+        rosterStatusMatchesFilter(row.status, rosterStatusFilter),
+      );
+    }
     const q = rosterSearch.trim().toLowerCase();
-    if (!q) return validStudents;
-    return validStudents.filter((s) => {
+    if (!q) return rows;
+    return rows.filter(({ student: s }) => {
       const name = (s.name || "").toLowerCase();
       const email = (s.email || "").toLowerCase();
       return name.includes(q) || email.includes(q);
     });
-  }, [onBulkEnroll, validStudents, rosterSearch]);
+  }, [onBulkEnroll, rosterRows, rosterStatusFilter, rosterSearch]);
 
-  // Hide users already on this course from the bulk picker
   const enrolledIdSet = useMemo(
     () => new Set(validStudents.map((s) => toId(s._id))),
     [validStudents],
@@ -118,7 +231,7 @@ export default function StudentsSection({
       >
         <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
           <Users className="w-5 h-5 text-brand-500" />
-          Enrolled Students
+          {t("workspace.studentsSection.enrolledStudents")}
         </h3>
         <div className="flex items-center gap-3 flex-wrap justify-end">
           {announcementHref && !onBulkEnroll ? (
@@ -128,7 +241,7 @@ export default function StudentsSection({
                 className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline"
               >
                 <Megaphone className="w-3.5 h-3.5 shrink-0" aria-hidden />
-                Message students
+                {t("workspace.quickActions.messageStudents")}
               </Link>
             </div>
           ) : null}
@@ -137,13 +250,13 @@ export default function StudentsSection({
               <ExportCsvButton
                 exportKey="enrollments"
                 params={{ courseId: adminRosterExportCourseId }}
-                label="Roster CSV"
+                label={t("workspace.studentsSection.rosterCsv")}
                 className="py-1.5 px-2.5 text-[11px]"
               />
             </div>
           ) : null}
           <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-            {validStudents.length} student{validStudents.length !== 1 ? "s" : ""}
+            {t("workspace.studentsSection.studentCount", { count: validStudents.length })}
           </span>
           <ChevronDown
             className={`w-5 h-5 text-gray-400 dark:text-gray-500 transition-transform duration-200 ${
@@ -168,26 +281,61 @@ export default function StudentsSection({
           <div className="px-5 py-8 text-center">
             <Users className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
             <p className="text-gray-400 dark:text-gray-500 text-sm">
-              No enrolled students.
+              {t("workspace.studentsSection.noEnrolled")}
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             {!onBulkEnroll && validStudents.length > 0 ? (
-              <div className="px-5 pt-4 pb-2">
+              <div className="px-5 pt-4 pb-2 space-y-3">
                 <div className="relative max-w-sm">
                   <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
                     type="search"
                     value={rosterSearch}
                     onChange={(e) => setRosterSearch(e.target.value)}
-                    placeholder="Search by name or email…"
+                    placeholder={t("workspace.studentsSection.searchPlaceholder")}
                     className="w-full h-9 ps-9 pe-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    aria-label="Search enrolled students"
+                    aria-label={t("workspace.studentsSection.searchAria")}
                   />
                 </div>
-                {rosterSearch.trim() && filteredRosterStudents.length === 0 ? (
-                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">No students match.</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                    {t("workspace.studentsSection.filter")}
+                  </span>
+                  {ROSTER_STATUS_FILTERS.map((filter) => {
+                    const count = rosterStatusCounts[filter.id] ?? 0;
+                    const selected = rosterStatusFilter === filter.id;
+                    return (
+                      <button
+                        key={filter.id}
+                        type="button"
+                        onClick={() => setRosterStatusFilter(filter.id)}
+                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                          selected
+                            ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        {t(filter.labelKey)}
+                        <span
+                          className={`tabular-nums ${
+                            selected
+                              ? "text-white/75 dark:text-gray-900/70"
+                              : "text-gray-400 dark:text-gray-500"
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {(rosterSearch.trim() || rosterStatusFilter !== "all") &&
+                filteredRosterStudents.length === 0 ? (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {t("workspace.studentsSection.noMatch")}
+                  </p>
                 ) : null}
               </div>
             ) : null}
@@ -195,26 +343,26 @@ export default function StudentsSection({
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-800/60">
                   <th className="px-5 py-2.5 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Student
+                    {t("workspace.studentsSection.colStudent")}
                   </th>
                   <th className="px-5 py-2.5 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Progress
+                    {t("workspace.studentsSection.colStatus")}
+                  </th>
+                  <th className="px-5 py-2.5 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    {t("workspace.studentsSection.colProgress")}
                   </th>
                   <th className="px-5 py-2.5 text-end text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Actions
+                    {t("workspace.studentsSection.colActions")}
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                {filteredRosterStudents.map((student) => {
-                  const record = bulkprogressData?.find(
-                    (item) =>
-                      toId(item.student) === toId(student._id),
-                  );
-                  const progress = record?.progress ?? 0;
+                {filteredRosterStudents.map(({ student, sid, progress, snap, status }) => {
+                  const expanded = expandedStudentId === sid;
+                  const statusMeta = ROSTER_STATUS_META[status] || ROSTER_STATUS_META.not_started;
                   return (
+                    <Fragment key={sid || "student-row"}>
                     <tr
-                      key={student._id ?? "row"}
                       className="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
                     >
                       <td className="px-5 py-3">
@@ -226,6 +374,13 @@ export default function StudentsSection({
                             {student.email}
                           </p>
                         )}
+                      </td>
+                      <td className="px-5 py-3">
+                        <span
+                          className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${statusMeta.className}`}
+                        >
+                          {t(statusMeta.labelKey)}
+                        </span>
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-3">
@@ -247,7 +402,25 @@ export default function StudentsSection({
                         </div>
                       </td>
                       <td className="px-5 py-3 text-end">
-                        <button
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedStudentId((cur) =>
+                                cur === sid ? null : sid,
+                              )
+                            }
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                          >
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 transition-transform shrink-0 ${
+                                expanded ? "rotate-180" : ""
+                              }`}
+                              aria-hidden
+                            />
+                            {expanded ? t("workspace.studentsSection.hideDetails") : t("workspace.studentsSection.details")}
+                          </button>
+                          <button
                           type="button"
                           onClick={() =>
                             navigate(
@@ -263,10 +436,33 @@ export default function StudentsSection({
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/30 rounded-lg hover:bg-brand-100 dark:hover:bg-brand-900/50 transition"
                         >
                           <Eye className="w-3.5 h-3.5" />
-                          View
+                          {t("workspace.studentsSection.open")}
                         </button>
+                        </div>
                       </td>
                     </tr>
+                    {expanded ? (
+                      <tr className="bg-gray-50/95 dark:bg-gray-800/40">
+                        <td
+                          colSpan={4}
+                          className="px-5 py-4 border-t border-gray-100 dark:border-gray-800"
+                        >
+                          {learnerSnapshotsLoading ? (
+                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                              {t("workspace.studentsSection.loadingDetails")}
+                            </div>
+                          ) : (
+                            <LearnerEnrollmentDetailPanel
+                              snapshot={snap}
+                              suppressProgress
+                              omitCourseHeading
+                            />
+                          )}
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
                   );
                 })}
               </tbody>
@@ -288,11 +484,10 @@ export default function StudentsSection({
         <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
             <UserPlus className="w-5 h-5 text-brand-500" />
-            Bulk enrollment
+            {t("workspace.studentsSection.bulkEnrollment")}
           </h3>
           <p className="text-xs text-gray-500 dark:text-gray-400 sm:text-end max-w-md">
-            Select users below, then enroll. Already enrolled users are hidden
-            from this list.
+            {t("workspace.studentsSection.bulkHint")}
           </p>
         </div>
 
@@ -303,7 +498,7 @@ export default function StudentsSection({
               <input
                 type="search"
                 name="search"
-                placeholder="Search by name or email…"
+                placeholder={t("workspace.studentsSection.searchPlaceholder")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full h-10 ps-10 pe-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
@@ -314,10 +509,10 @@ export default function StudentsSection({
               onChange={(e) => setRoleFilter(e.target.value)}
               className="h-10 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500 sm:w-44"
             >
-              <option value="all">All roles</option>
-              <option value="student">Students</option>
-              <option value="teacher">Teachers</option>
-              <option value="admin">Admins</option>
+              <option value="all">{t("workspace.studentsSection.roleAll")}</option>
+              <option value="student">{t("workspace.studentsSection.roleStudents")}</option>
+              <option value="teacher">{t("workspace.studentsSection.roleTeachers")}</option>
+              <option value="admin">{t("workspace.studentsSection.roleAdmins")}</option>
             </select>
           </div>
 
@@ -333,25 +528,25 @@ export default function StudentsSection({
               {isBulkEnrolling ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Enrolling…
+                  {t("workspace.studentsSection.enrolling")}
                 </>
               ) : (
                 <>
                   <UserPlus className="w-4 h-4" />
-                  Enroll selected ({selectedArray.length})
+                  {t("workspace.studentsSection.enrollSelected", { count: selectedArray.length })}
                 </>
               )}
             </button>
             <span className="text-xs text-gray-500 dark:text-gray-400">
               {selectedArray.length > 0
-                ? `${selectedArray.length} selected`
-                : "Select one or more users"}
+                ? t("workspace.studentsSection.selectedCount", { count: selectedArray.length })
+                : t("workspace.studentsSection.selectPrompt")}
             </span>
           </div>
 
           {usersError && (
             <p className="text-sm text-red-600 dark:text-red-400">
-              Could not load users. Check your connection and try again.
+              {t("workspace.studentsSection.loadError")}
             </p>
           )}
 
@@ -366,8 +561,8 @@ export default function StudentsSection({
               <Users className="w-9 h-9 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {!allusers?.length
-                  ? "No users match your search."
-                  : "Everyone matching your filters is already enrolled."}
+                  ? t("workspace.studentsSection.noUsersMatch")
+                  : t("workspace.studentsSection.allEnrolled")}
               </p>
             </div>
           ) : (
@@ -381,14 +576,14 @@ export default function StudentsSection({
                         className="rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500"
                         checked={allVisibleSelected}
                         onChange={toggleSelectAll}
-                        aria-label="Select all visible users"
+                        aria-label={t("workspace.studentsSection.selectAllAria")}
                       />
                     </th>
                     <th className="px-3 py-2.5 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      User
+                      {t("workspace.studentsSection.colUser")}
                     </th>
                     <th className="px-3 py-2.5 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      Role
+                      {t("workspace.studentsSection.colRole")}
                     </th>
                   </tr>
                 </thead>
@@ -407,7 +602,7 @@ export default function StudentsSection({
                             className="rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500"
                             checked={checked}
                             onChange={() => toggleOne(uid)}
-                            aria-label={`Select ${user.name || user.email}`}
+                            aria-label={t("workspace.studentsSection.selectUserAria", { name: user.name || user.email })}
                           />
                         </td>
                         <td className="px-3 py-3">

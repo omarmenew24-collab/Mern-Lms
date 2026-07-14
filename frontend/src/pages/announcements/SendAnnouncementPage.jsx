@@ -1,4 +1,5 @@
 import { Navigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import useUserStore from "../../store/userstore";
 import AccountSettingsLayout from "../../components/layout/AccountSettingsLayout";
 import { getAccountNavItems } from "../../config/accountNav";
@@ -9,6 +10,7 @@ import SendAnnouncementForm from "../../components/SendAnnouncementForm";
  * Instructors: dedicated page. Admins are steered to Admin workspace (same form lives there).
  */
 export default function SendAnnouncementPage() {
+  const { t } = useTranslation();
   const user = useUserStore((s) => s.user);
   const isAdmin = user?.role === "admin";
   const isTeacher = user?.role === "teacher";
@@ -25,8 +27,8 @@ export default function SendAnnouncementPage() {
 
   return (
     <AccountSettingsLayout
-      title="Send notification"
-      subtitle="In-app message to students in one of your courses."
+      title={t("workspace.pagesMisc.sendNotification")}
+      subtitle={t("workspace.pagesMisc.sendNotificationSub")}
       navItems={getAccountNavItems(user)}
     >
       <div className="max-w-2xl">

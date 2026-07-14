@@ -23,6 +23,14 @@ const courseCompletionSchema = new mongoose.Schema(
       },
     ],
 
+    /** Student self-mark "I've reviewed this" — does NOT affect progress % */
+    acknowledgedLectures: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Lecture",
+      },
+    ],
+
     // Links to your Task model
     completedTasks: [
       {
@@ -63,6 +71,26 @@ const courseCompletionSchema = new mongoose.Schema(
     certificateUrl: {
       type: String,
     },
+    /** Opaque public verification code (unique). Set when PDF is first issued. */
+    certificateCode: {
+      type: String,
+      maxlength: 64,
+      default: null,
+      sparse: true,
+      unique: true,
+    },
+    certificateIssuedAt: {
+      type: Date,
+      default: null,
+    },
+    certificateRevoked: {
+      type: Boolean,
+      default: false,
+    },
+    certificateRevokedAt: {
+      type: Date,
+      default: null,
+    },
     approvedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User", // The teacher who validates the final grade
@@ -72,6 +100,11 @@ const courseCompletionSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    /** Student opened course workspace — counted with a minimum gap (see controller). */
+    firstWorkspaceVisitAt: { type: Date, default: null },
+    lastWorkspaceVisitAt: { type: Date, default: null },
+    workspaceVisitCount: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }
 );

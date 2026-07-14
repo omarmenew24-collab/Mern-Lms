@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, SlidersHorizontal, ShieldCheck } from "lucide-react";
 import AccountSettingsLayout from "../../components/layout/AccountSettingsLayout";
 import { getAccountNavItems } from "../../config/accountNav";
@@ -8,11 +9,12 @@ import RefundPolicyForm from "../../components/admin/RefundPolicyForm";
 import MoneyBackGuaranteeForm from "../../components/admin/MoneyBackGuaranteeForm";
 
 export default function AdminFinancialSettingsPage() {
+  const { t } = useTranslation();
   const user = useUserStore((s) => s.user);
   return (
     <AccountSettingsLayout
-      title="Financial policy"
-      subtitle="Refund rules and optional money-back messaging for paid courses."
+      title={t("workspace.pagesMisc.financialPolicy")}
+      subtitle={t("workspace.pagesMisc.financialPolicySub")}
       navItems={getAccountNavItems(user)}
     >
       <Link
@@ -20,7 +22,7 @@ export default function AdminFinancialSettingsPage() {
         className="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 mb-6"
       >
         <ArrowLeft className="w-4 h-4 rtl-flip" />
-        Back to admin overview
+        {t("workspace.pagesMisc.backToAdmin")}
       </Link>
 
       <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-sm">
@@ -29,9 +31,9 @@ export default function AdminFinancialSettingsPage() {
             <SlidersHorizontal className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Refund policy</h2>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t("workspace.pagesMisc.refundPolicy")}</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-              Refunds apply to card payments only. Enrollments are revoked when a refund completes.
+              {t("workspace.pagesMisc.refundPolicyDesc")}
             </p>
           </div>
         </div>
@@ -44,9 +46,9 @@ export default function AdminFinancialSettingsPage() {
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Money-back guarantee (optional)</h2>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t("workspace.pagesMisc.moneyBack")}</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-              Public message on course pages. Independent of refund automation—use both together or only one.
+              {t("workspace.pagesMisc.moneyBackDesc")}
             </p>
           </div>
         </div>

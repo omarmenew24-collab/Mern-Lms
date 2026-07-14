@@ -13,11 +13,35 @@ function isSupportedLanguage(language) {
   return supportedLanguages.includes(language);
 }
 
+/**
+ * Detect the visitor's preferred language from the browser when no choice has
+ * been saved yet. Arabic-locale browsers (e.g. "ar", "ar-EG") get Arabic;
+ * everyone else falls back to English (the neutral default).
+ */
+function detectBrowserLanguage() {
+  if (typeof navigator === "undefined") return "en";
+
+  const candidates = Array.isArray(navigator.languages) && navigator.languages.length
+    ? navigator.languages
+    : [navigator.language];
+
+  for (const tag of candidates) {
+    if (typeof tag === "string" && tag.toLowerCase().startsWith("ar")) {
+      return "ar";
+    }
+  }
+  return "en";
+}
+
 function getStoredLanguage() {
-  if (typeof window === "undefined") return defaultLanguage;
+  if (typeof window === "undefined") return "en";
 
   const persisted = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
-  return isSupportedLanguage(persisted) ? persisted : defaultLanguage;
+  if (isSupportedLanguage(persisted)) return persisted;
+
+  // No saved preference yet: auto-detect from the browser, then guard.
+  const detected = detectBrowserLanguage();
+  return isSupportedLanguage(detected) ? detected : "en";
 }
 
 function getDirection(language) {

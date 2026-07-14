@@ -2,14 +2,15 @@ import { protectRoute, adminOnly } from "../middlewares/auth.middleware.js";
 import {
   getAllUsers,
   softDeleteUser,
-  changeUserRole,
   getDashboardStats,
   getUserById,
+  getAdminUserLearnerSnapshots,
   getDashboardAnalytics,
   getFinanceOverview,
   getSiteSettings,
   patchSiteSettings,
 } from "../controllers/admin.controller.js";
+import { getStudentEnrolledCoursesForAdmin } from "../controllers/course.controller.js";
 import {
   exportUsersCsv,
   exportCoursesCsv,
@@ -17,7 +18,6 @@ import {
   exportEnrollmentsCsv,
   exportRefundsCsv,
   exportManualPaymentsCsv,
-  exportChargebacksCsv,
 } from "../controllers/adminExport.controller.js";
 import express from "express";
 
@@ -28,7 +28,18 @@ router.get("/dashboard-analytics", protectRoute, adminOnly, getDashboardAnalytic
 router.get("/finance-overview", protectRoute, adminOnly, getFinanceOverview);
 router.get("/users", protectRoute, adminOnly, getAllUsers);
 router.delete("/users/:id", protectRoute, adminOnly, softDeleteUser);
-router.patch("/users/:id/role", protectRoute, adminOnly, changeUserRole);
+router.get(
+  "/users/:userId/enrolled-courses",
+  protectRoute,
+  adminOnly,
+  getStudentEnrolledCoursesForAdmin,
+);
+router.get(
+  "/users/:userId/learner-snapshots",
+  protectRoute,
+  adminOnly,
+  getAdminUserLearnerSnapshots,
+);
 router.get("/users/:userId", protectRoute, adminOnly, getUserById);
 router.get("/site-settings", protectRoute, adminOnly, getSiteSettings);
 router.patch("/site-settings", protectRoute, adminOnly, patchSiteSettings);
@@ -40,7 +51,6 @@ router.get("/admin/exports/payments", protectRoute, adminOnly, exportPaymentsCsv
 router.get("/admin/exports/enrollments", protectRoute, adminOnly, exportEnrollmentsCsv);
 router.get("/admin/exports/refunds", protectRoute, adminOnly, exportRefundsCsv);
 router.get("/admin/exports/manual-payments", protectRoute, adminOnly, exportManualPaymentsCsv);
-router.get("/admin/exports/chargebacks", protectRoute, adminOnly, exportChargebacksCsv);
 
 
 

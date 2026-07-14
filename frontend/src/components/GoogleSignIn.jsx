@@ -1,6 +1,7 @@
 import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import useStore from "../store/userstore";
 import { useGoogleLogin } from "../api/auth";
 import { paths } from "../config/paths";
@@ -10,6 +11,7 @@ const clientId =
 
 export default function GoogleSignIn() {
   //const { googlelogin } = useStore();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const { googlelogin, isPending} = useGoogleLogin();
@@ -34,7 +36,7 @@ export default function GoogleSignIn() {
         navigate("/student");
       }
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Login failed. Please try again.");
+      toast.error(err?.response?.data?.message || t("workspace.googleSignIn.loginFailed"));
     } finally {
       setLoading(false);
     }
@@ -45,12 +47,12 @@ export default function GoogleSignIn() {
       <div className="flex items-center h-10"> {/* ✅ align with navbar buttons */}
         {loading ? (
           <span className="text-gray-700 font-medium px-4 py-2">
-            Logging in...
+            {t("workspace.googleSignIn.loggingIn")}
           </span>
         ) : (
           <GoogleLogin
             onSuccess={handleSuccess}
-            onError={() => toast.error("Google sign-in was cancelled or failed.")}
+            onError={() => toast.error(t("workspace.googleSignIn.cancelled"))}
             width="150"  // optional: control width
           />
         )}

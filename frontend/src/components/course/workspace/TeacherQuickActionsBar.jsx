@@ -1,112 +1,129 @@
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Video, FileUp, Link2, Type, ListChecks, Megaphone, Plus } from "lucide-react";
+import { Video, FileUp, Link2, Type, ListChecks, Megaphone, Plus, ChevronDown } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { paths } from "../../../config/paths";
+import { getNewLecturePrefillFromLectures } from "../../../lib/newLecturePrefillFromCourse";
 
 const CONTENT_TYPES = [
   {
     value: "video",
     icon: Video,
-    label: "Video",
-    hint: "Upload or paste link",
+    labelKey: "workspace.quickActions.videoLesson",
     classes:
-      "text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/40 border-brand-200 dark:border-brand-800/60 hover:border-brand-400 dark:hover:border-brand-500 hover:bg-brand-100/60 dark:hover:bg-brand-900/40",
+      "text-brand-800 dark:text-brand-200 hover:bg-brand-50 dark:hover:bg-brand-950/35",
     iconClasses: "text-brand-500",
   },
   {
     value: "file",
     icon: FileUp,
-    label: "PDF / File",
-    hint: "Upload a document",
+    labelKey: "workspace.quickActions.pdfFile",
     classes:
-      "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/60 hover:border-amber-400 dark:hover:border-amber-500 hover:bg-amber-100/60 dark:hover:bg-amber-900/30",
+      "text-amber-800 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-950/25",
     iconClasses: "text-amber-500",
   },
   {
     value: "link",
     icon: Link2,
-    label: "Zoom / Link",
-    hint: "Meeting or any URL",
-    classes:
-      "text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/30 border-sky-200 dark:border-sky-800/60 hover:border-sky-400 dark:hover:border-sky-500 hover:bg-sky-100/60 dark:hover:bg-sky-900/30",
+    labelKey: "workspace.quickActions.zoomLink",
+    classes: "text-sky-800 dark:text-sky-200 hover:bg-sky-50 dark:hover:bg-sky-950/25",
     iconClasses: "text-sky-500",
   },
   {
     value: "text",
     icon: Type,
-    label: "Text / Notes",
-    hint: "Written material",
+    labelKey: "workspace.quickActions.textNotes",
     classes:
-      "text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/30 border-violet-200 dark:border-violet-800/60 hover:border-violet-400 dark:hover:border-violet-500 hover:bg-violet-100/60 dark:hover:bg-violet-900/30",
+      "text-violet-800 dark:text-violet-200 hover:bg-violet-50 dark:hover:bg-violet-950/25",
     iconClasses: "text-violet-500",
   },
 ];
 
 /**
- * Content creation hub — always visible regardless of course status.
- * Lets instructors quickly start any lecture type or create a task.
+ * Compact teacher shortcuts — contextual adds live in each curriculum section below.
  */
-export default function TeacherQuickActionsBar({ courseId, lectureCount = 0, taskCount = 0 }) {
+export default function TeacherQuickActionsBar({
+  courseId,
+  taskCount = 0,
+  /** Sorted lectures list — used to prefill module (level) + order for the next lesson. */
+  sortedLectures = [],
+}) {
+  const { t } = useTranslation();
+  const lecturePrefill = getNewLecturePrefillFromLectures(sortedLectures);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDoc = (e) => {
+      if (!wrapRef.current?.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [menuOpen]);
+
   return (
     <div
       id="workspace-quick-actions"
-      className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden scroll-mt-20"
+      className="flex scroll-mt-20 flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900"
     >
-      {/* Header */}
-      <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-        <h2 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          <Plus className="w-4 h-4 text-brand-500" />
-          Add content
-        </h2>
-        <Link
-          to={paths.sendAnnouncement}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors"
-        >
-          <Megaphone className="w-3.5 h-3.5" />
-          Message students
-        </Link>
-      </div>
-
-      <div className="p-4">
-        {/* Lecture type cards */}
-        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2.5">
-          New lecture
-        </p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-          {CONTENT_TYPES.map(({ value, icon: Icon, label, hint, classes, iconClasses }) => (
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative" ref={wrapRef}>
+          <button
+            type="button"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((o) => !o)}
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/90 px-3.5 py-2 text-sm font-bold text-gray-900 shadow-sm transition hover:border-brand-300 hover:bg-brand-50/70 dark:border-gray-700 dark:bg-gray-800/70 dark:text-white dark:hover:border-brand-500/40 dark:hover:bg-brand-950/40"
+          >
+            <Plus className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
+            {t("workspace.quickActions.addLecture")}
+            <ChevronDown
+              className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${menuOpen ? "rotate-180" : ""}`}
+            />
+          </button>
+          {menuOpen ? (
+            <div
+              className="absolute start-0 top-[calc(100%+6px)] z-30 min-w-[12.5rem] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900"
+              role="menu"
+            >
+              {CONTENT_TYPES.map(({ value, icon: ItemIcon, labelKey, classes, iconClasses }) => (
             <Link
               key={value}
               to={paths.courseNewLecture(courseId)}
-              state={{ prefillContentType: value }}
-              className={`group flex items-center gap-3 p-3 rounded-xl border transition-all duration-150 ${classes}`}
-            >
-              <div className={`shrink-0 ${iconClasses}`}>
-                <Icon className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs font-bold leading-tight">{label}</div>
-                <div className="text-[10px] opacity-60 mt-0.5 truncate hidden sm:block">{hint}</div>
-              </div>
+                  state={{ prefillContentType: value, ...lecturePrefill }}
+                  onClick={() => setMenuOpen(false)}
+                  role="menuitem"
+                  className={`flex items-center gap-2.5 px-3 py-2.5 text-sm font-semibold transition-colors ${classes}`}
+                >
+                  <ItemIcon className={`h-4 w-4 shrink-0 ${iconClasses}`} />
+                  {t(labelKey)}
             </Link>
           ))}
+            </div>
+          ) : null}
         </div>
 
-        {/* Task row */}
-        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2.5">
-          New task
-        </p>
         <Link
           to={paths.courseNewTask(courseId)}
-          className="group flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-100/60 dark:hover:bg-gray-800 transition-all duration-150"
+          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-bold text-gray-800 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-gray-800/80"
         >
-          <ListChecks className="w-5 h-5 text-gray-500 dark:text-gray-400 shrink-0" />
-          <div>
-            <div className="text-xs font-bold text-gray-700 dark:text-gray-200">Assignment, exam, or resource</div>
-            <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
-              {taskCount === 0 ? "No tasks yet — add one to collect student work" : `${taskCount} task${taskCount !== 1 ? "s" : ""} · Add another`}
-            </div>
-          </div>
+          <ListChecks className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" />
+          {t("workspace.quickActions.newTask")}
+          {taskCount > 0 ? (
+            <span className="ms-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold tabular-nums text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+              {taskCount}
+            </span>
+          ) : null}
         </Link>
       </div>
+
+      <Link
+        to={paths.sendAnnouncement}
+        className="inline-flex items-center gap-1.5 text-sm font-bold text-brand-700 transition hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200"
+      >
+        <Megaphone className="h-4 w-4 shrink-0" />
+        {t("workspace.quickActions.messageStudents")}
+      </Link>
     </div>
   );
 }

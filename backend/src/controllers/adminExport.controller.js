@@ -5,7 +5,6 @@ import Payment from "../models/payment.model.js";
 import Enrollment from "../models/enrollment.model.js";
 import RefundRequest from "../models/refundRequest.model.js";
 import ManualPaymentOrder from "../models/manualPaymentOrder.model.js";
-import Chargeback, { CHARGEBACK_STATUSES } from "../models/chargeback.model.js";
 import { attachPricingToCourseDoc } from "../lib/coursePricing.js";
 import { sendCsv } from "../lib/csv.js";
 
@@ -325,52 +324,3 @@ export const exportManualPaymentsCsv = async (req, res) => {
   }
 };
 
-/** Disputes register — finance risk & evidence trail pointers. */
-export const exportChargebacksCsv = async (req, res) => {
-  try {
-    const { status } = req.query;
-    const q = {};
-    if (status && String(status) !== "all" && CHARGEBACK_STATUSES.includes(String(status))) {
-      q.status = String(status);
-    }
-
-    const rows = await Chargeback.find(q)
-      .populate("user", "name email")
-      .populate("course", "title")
-      .sort({ dateOpened: -1 })
-      .limit(3000)
-      .lean();
-
-    const headers = [
-      "chargeback_id",
-      "status",
-      "provider",
-      "amount",
-      "currency",
-      "date_opened",
-      "stripe_dispute_id",
-      "order_label",
-      "student_email",
-      "course_title",
-      "evidence_captured_at",
-    ];
-    const data = rows.map((c) => [
-      String(c._id),
-      c.status,
-      c.provider || "stripe",
-      Number(c.amount),
-      c.currency || "usd",
-      iso(c.dateOpened),
-      c.stripeDisputeId || "",
-      c.orderLabel || "",
-      c.user?.email || "",
-      c.course?.title || "",
-      iso(c.evidenceCapturedAt),
-    ]);
-
-    return sendCsv(res, "chargebacks", headers, data);
-  } catch (e) {
-    console.error("exportChargebacksCsv:", e);
-    return res.status(500).json({ message: e.message || "Export failed" });
-  }
-};

@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useDeleteCourseCategory } from "../../api/course";
 
 /**
@@ -6,6 +7,7 @@ import { useDeleteCourseCategory } from "../../api/course";
  * from existing courses — those cannot be deleted here; courses are never modified.
  */
 export default function SavedCourseCategoryChips({ categories = [], disabled }) {
+  const { t } = useTranslation();
   const { mutateAsync: removeLabel, isPending } = useDeleteCourseCategory();
   const saved = categories.filter((c) => c._id);
 
@@ -14,7 +16,9 @@ export default function SavedCourseCategoryChips({ categories = [], disabled }) 
   return (
     <div className="mt-2 space-y-1.5">
       <p className="text-[10px] text-gray-500 dark:text-gray-500 leading-snug">
-        Remove a <span className="font-medium">saved</span> suggestion only — your courses stay as they are.
+        {t("workspace.courseFields.removeSavedPrefix")}
+        <span className="font-medium">{t("workspace.courseFields.removeSavedBold")}</span>
+        {t("workspace.courseFields.removeSavedSuffix")}
       </p>
       <div className="flex flex-wrap gap-1.5">
         {saved.map((c) => (
@@ -28,7 +32,7 @@ export default function SavedCourseCategoryChips({ categories = [], disabled }) 
               disabled={disabled || isPending}
               onClick={() => removeLabel(c._id)}
               className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-950/50 text-gray-500 hover:text-red-600 disabled:opacity-40"
-              aria-label={`Remove saved label ${c.name}`}
+              aria-label={t("workspace.courseFields.removeSavedAria", { name: c.name })}
             >
               <X className="w-3.5 h-3.5" />
             </button>

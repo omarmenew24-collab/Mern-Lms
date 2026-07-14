@@ -17,8 +17,6 @@ export const paths = {
   profile: "/profile",
   /** Public profile (teacher or student) — about + project links */
   userPublic: (userId) => `/u/${userId}`,
-  teachingApply: "/teaching/apply",
-  teachingRequest: (id) => `/teaching/requests/${id}`,
   admin: "/admin",
   /** Admin account shell (profile + quick links) — not site-wide config. */
   adminSettings: "/admin/settings",
@@ -31,9 +29,8 @@ export const paths = {
   adminFinance: "/admin/finance",
   adminFinancialSettings: "/admin/settings/financial",
   adminRefunds: "/admin/refunds",
-  adminChargebacks: "/admin/chargebacks",
-  adminChargeback: (id) => `/admin/chargebacks/${id}`,
   adminManualPayments: "/admin/manual-payments",
+  adminCoupons: "/admin/coupons",
   studentManualPayments: "/student/manual-payments",
   studentRefunds: "/student/refunds",
   /** Instructor: in-app announcements (admins use Admin workspace + hash). */
@@ -42,6 +39,8 @@ export const paths = {
   adminInAppAnnouncements: "/admin/settings#in-app-announcements",
   course: (courseId) => `/courses/${courseId}`,
   courseWorkspace: (courseId) => `/courses/${courseId}/workspace`,
+  /** Instructor workspace section (overview | curriculum | students | tasks | settings | comments — UI label "Q&A"). */
+  courseWorkspaceTab: (courseId, tab) => `/courses/${courseId}/workspace/${tab}`,
   courseNewTask: (courseId) => `/courses/${courseId}/tasks/new`,
   courseNewLecture: (courseId) => `/courses/${courseId}/lectures/new`,
   courseEditLecture: (courseId, lectureId) =>
@@ -54,4 +53,6 @@ export const paths = {
     `/courses/${courseId}/tasks/${taskId}/submissions`,
   checkoutCourse: (courseId) => `/checkout/courses/${courseId}`,
   checkoutSuccess: (courseId) => `/checkout/success/${courseId}`,
+  /** Public certificate verification (credential ID in path). */
+  certificateVerify: (code) => `/certificate/verify/${encodeURIComponent(code)}`,
 };

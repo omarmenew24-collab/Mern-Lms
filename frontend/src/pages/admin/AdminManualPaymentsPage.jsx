@@ -78,6 +78,14 @@ export default function AdminManualPaymentsPage() {
       ? new Intl.NumberFormat(i18n.language, { style: "currency", currency: "USD" }).format(value)
       : "—";
 
+  const rejectPresetKeys = [
+    "rejectPreset_amountMismatch",
+    "rejectPreset_refUnclear",
+    "rejectPreset_receiptUnreadable",
+    "rejectPreset_nameMismatch",
+    "rejectPreset_wrongMethod",
+  ];
+
   const openReject = (id) => {
     setRejectOrderId(id);
     setRejectReason("");
@@ -256,6 +264,17 @@ export default function AdminManualPaymentsPage() {
                     <ReceiptPreview url={o.receiptUrl} mime={o.receiptMimeType} />
                   </div>
 
+                  {o.status === "rejected" && String(o.rejectionReason || "").trim() ? (
+                    <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/25 px-3 py-2.5 text-sm">
+                      <p className="text-[11px] font-semibold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
+                        {t("manualPaymentsAdmin.noteToStudent")}
+                      </p>
+                      <p className="text-amber-950 dark:text-amber-100 mt-1 whitespace-pre-wrap">
+                        {o.rejectionReason}
+                      </p>
+                    </div>
+                  ) : null}
+
                   {o.status === "awaiting_verification" ? (
                     <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
                       <button
@@ -425,20 +444,47 @@ export default function AdminManualPaymentsPage() {
 
       {rejectOrderId ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 max-w-md w-full shadow-xl">
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 max-w-lg w-full shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-start gap-3 mb-4">
               <ShieldAlert className="w-6 h-6 text-amber-500 shrink-0" />
               <div>
-                <h3 className="font-bold text-gray-900 dark:text-white">Reject submission</h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  The student can upload new proof. Optional note is shown to them.
+                <h3 className="font-bold text-gray-900 dark:text-white">{t("manualPaymentsAdmin.rejectModalTitle")}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  {t("manualPaymentsAdmin.rejectModalHint")}
                 </p>
               </div>
             </div>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">
+              {t("manualPaymentsAdmin.rejectQuickReasons")}
+            </p>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {rejectPresetKeys.map((key) => {
+                const label = t(`manualPaymentsAdmin.${key}`);
+                const active = rejectReason.trim() === label.trim();
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setRejectReason(label)}
+                    className={[
+                      "text-start text-xs font-medium px-3 py-2 rounded-lg border transition-colors max-w-full",
+                      active
+                        ? "border-brand-600 bg-brand-50 dark:bg-brand-950/40 text-brand-900 dark:text-brand-100"
+                        : "border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800",
+                    ].join(" ")}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+              {t("manualPaymentsAdmin.rejectCustomLabel")}
+            </label>
             <textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Reason (optional)"
+              placeholder={t("manualPaymentsAdmin.rejectCustomPlaceholder")}
               className="w-full rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm bg-white dark:bg-gray-950 min-h-[100px] mb-4"
             />
             <div className="flex justify-end gap-2">
@@ -447,7 +493,7 @@ export default function AdminManualPaymentsPage() {
                 onClick={() => setRejectOrderId(null)}
                 className="h-10 px-4 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-semibold"
               >
-                Cancel
+                {t("manualPaymentsAdmin.rejectCancel")}
               </button>
               <button
                 type="button"
@@ -455,7 +501,7 @@ export default function AdminManualPaymentsPage() {
                 onClick={confirmReject}
                 className="h-10 px-4 rounded-lg bg-red-600 text-white text-sm font-semibold disabled:opacity-50"
               >
-                {rejecting ? "…" : "Reject"}
+                {rejecting ? "…" : t("manualPaymentsAdmin.rejectConfirm")}
               </button>
             </div>
           </div>

@@ -380,6 +380,74 @@ export const markLectureAsComplete = async (req, res) => {
 };
 
 // ======================
+// STUDENT: ACKNOWLEDGE LECTURE (self "reviewed" — does not change progress %)
+// ======================
+export const toggleLectureAcknowledgment = async (req, res) => {
+  try {
+    const { courseId, lectureId } = req.params;
+    const acknowledged = Boolean(req.body?.acknowledged);
+
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const studentId = req.user._id;
+
+    const enrollment = await Enrollment.findOne({
+      student: studentId,
+      course: courseId,
+      ...activeOrLegacyEnrollmentFilter,
+    });
+
+    if (!enrollment) {
+      return res.status(403).json({ message: "You are not enrolled in this course" });
+    }
+
+    const lecture = await Lecture.findOne({
+      _id: lectureId,
+      course: courseId,
+    });
+
+    if (!lecture) {
+      return res.status(400).json({ message: "Lecture does not belong to this course" });
+    }
+
+    const course = await Course.findById(courseId).select("lectures");
+    const validLectureIds = new Set((course?.lectures || []).map((id) => id.toString()));
+
+    let doc = await CourseCompletion.findOne({ student: studentId, course: courseId });
+
+    if (!doc) {
+      doc = await CourseCompletion.create({
+        student: studentId,
+        course: courseId,
+        completedLectures: [],
+        completedTasks: [],
+        acknowledgedLectures: [],
+        progress: 0,
+        isCompleted: false,
+      });
+    }
+
+    const ackSet = new Set((doc.acknowledgedLectures || []).map((id) => id.toString()));
+    if (acknowledged) {
+      ackSet.add(lectureId.toString());
+    } else {
+      ackSet.delete(lectureId.toString());
+    }
+
+    doc.acknowledgedLectures = [...ackSet].filter((id) => validLectureIds.has(id));
+    await doc.save();
+
+    res.status(200).json({
+      acknowledgedLectures: doc.acknowledgedLectures.map((id) => id.toString()),
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ======================
 // DELETE LECTURE
 // ======================
 export const deleteLecture = async (req, res) => {

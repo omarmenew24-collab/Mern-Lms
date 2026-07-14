@@ -34,8 +34,6 @@ const siteSettingsSchema = new mongoose.Schema(
     commentsGloballyDisabled: { type: Boolean, default: false },
     /** When true, learners cannot submit/update star ratings on any course. */
     ratingsGloballyDisabled: { type: Boolean, default: false },
-    /** When true, learners cannot submit/update star ratings on any course. */
-    ratingsGloballyDisabled: { type: Boolean, default: false },
     /** Header logo text & browser title base (single-tenant branding). */
     siteDisplayName: { type: String, default: "", maxlength: 48 },
     /** Home hero — editable marketing strip */
@@ -49,6 +47,15 @@ const siteSettingsSchema = new mongoose.Schema(
     heroTrustLine1: { type: String, default: "", maxlength: 80 },
     heroTrustLine2: { type: String, default: "", maxlength: 80 },
     heroTrustLine3: { type: String, default: "", maxlength: 80 },
+    /** Home stats strip (students, courses, etc.) under the hero. */
+    homePlatformStatsEnabled: { type: Boolean, default: true },
+    /** Certificate PDF — issuer & signatory (URLs validated like hero image). */
+    certificateIssuerLegalName: { type: String, default: "", maxlength: 160 },
+    certificateIssuerTagline: { type: String, default: "", maxlength: 240 },
+    certificateLogoUrl: { type: String, default: "", maxlength: 500 },
+    certificateSignatureImageUrl: { type: String, default: "", maxlength: 500 },
+    certificateSignatoryName: { type: String, default: "", maxlength: 120 },
+    certificateSignatoryTitle: { type: String, default: "", maxlength: 160 },
     /** Shown to everyone on the home page (empty = off). */
     homeAnnouncement: { type: String, default: "", maxlength: 400 },
     /** Public About page — heading (admin-editable). */

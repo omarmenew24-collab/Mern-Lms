@@ -105,6 +105,18 @@ export default function StudentManualPaymentsPage() {
                   </span>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
+                  {o.status === "rejected" ? (
+                    <div className="w-full rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/90 dark:bg-amber-950/25 px-3 py-2.5 mb-1">
+                      <p className="text-[11px] font-semibold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
+                        {t("student.manualPayments.rejectionNoteTitle")}
+                      </p>
+                      <p className="text-sm text-amber-950 dark:text-amber-100 mt-1 whitespace-pre-wrap">
+                        {String(o.rejectionReason || "").trim()
+                          ? o.rejectionReason
+                          : t("student.manualPayments.rejectionNoNote")}
+                      </p>
+                    </div>
+                  ) : null}
                   {o.status === "awaiting_proof" || o.status === "rejected" ? (
                     <Link
                       to={paths.checkoutCourse(cid)}

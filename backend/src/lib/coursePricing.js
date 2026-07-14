@@ -18,6 +18,10 @@ export function computeEffectivePrice(course) {
     return { listPrice: Number.NaN, effectivePrice: Number.NaN, promotionActive: false };
   }
 
+  if (course?.isFree === true) {
+    return { listPrice, effectivePrice: 0, promotionActive: false };
+  }
+
   const p = course?.promotion;
   if (!p || p.enabled !== true) {
     return { listPrice, effectivePrice: listPrice, promotionActive: false };
@@ -110,15 +114,22 @@ export function parsePromotionInput(body) {
 /**
  * @returns {{ ok: true } | { ok: false, message: string }}
  */
-export function validateCheckoutPrice(listPrice, promotion) {
-  const { effectivePrice } = computeEffectivePrice({ price: listPrice, promotion });
+export function validateCheckoutPrice(listPrice, promotion, isFreeCourse = false) {
+  const { effectivePrice } = computeEffectivePrice({
+    price: listPrice,
+    promotion,
+    isFree: isFreeCourse,
+  });
   if (!Number.isFinite(effectivePrice)) {
     return { ok: false, message: "Invalid price" };
+  }
+  if (effectivePrice === 0 && isFreeCourse) {
+    return { ok: true };
   }
   if (effectivePrice < MIN_CHECKOUT_PRICE_USD) {
     return {
       ok: false,
-      message: `Card checkout requires an effective price of at least $${MIN_CHECKOUT_PRICE_USD.toFixed(2)}. Turn off the promotion or set a lower discount.`,
+      message: `Card checkout requires an effective price of at least $${MIN_CHECKOUT_PRICE_USD.toFixed(2)}. Turn off the promotion or set a lower discount, or mark the course as free (admin).`,
     };
   }
   return { ok: true };

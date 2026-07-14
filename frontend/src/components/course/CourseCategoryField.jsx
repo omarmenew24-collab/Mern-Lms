@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 const OTHER = "__cc_other__";
 
@@ -15,12 +16,15 @@ export default function CourseCategoryField({
   inputClass = "",
   selectClass,
   idPrefix = "cc",
-  label = "Category",
+  label,
   helpText = null,
   required = true,
-  placeholder = "e.g. Web development",
+  placeholder,
   children = null,
 }) {
+  const { t } = useTranslation();
+  const resolvedLabel = label || t("workspace.courseFields.categoryLabel");
+  const resolvedPlaceholder = placeholder || t("workspace.courseFields.categoryPlaceholder");
   const names = useMemo(() => {
     const seen = new Set();
     const out = [];
@@ -49,7 +53,7 @@ export default function CourseCategoryField({
         className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5"
         htmlFor={`${idPrefix}-category-text`}
       >
-        {label}
+        {resolvedLabel}
       </label>
       <select
         id={`${idPrefix}-category-sel`}
@@ -67,15 +71,15 @@ export default function CourseCategoryField({
           }
           onChange({ target: { name, value: v } });
         }}
-        aria-label="Choose from suggested categories"
+        aria-label={t("workspace.courseFields.chooseSuggested")}
       >
-        <option value="">— Choose a category (see list) —</option>
+        <option value="">{t("workspace.courseFields.choosePrompt")}</option>
         {names.map((n) => (
           <option key={n} value={n}>
             {n}
           </option>
         ))}
-        <option value={OTHER}>Other — type your own in the field below</option>
+        <option value={OTHER}>{t("workspace.courseFields.otherOption")}</option>
       </select>
       <input
         id={`${idPrefix}-category-text`}
@@ -83,7 +87,7 @@ export default function CourseCategoryField({
         name={name}
         value={value}
         onChange={onChange}
-        placeholder={placeholder}
+        placeholder={resolvedPlaceholder}
         className={inputClass}
         required={required}
         disabled={disabled}

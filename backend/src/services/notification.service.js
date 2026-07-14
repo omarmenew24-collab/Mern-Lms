@@ -213,15 +213,15 @@ export async function onAssignmentGraded({ courseId, taskTitle, studentId, grade
   });
 }
 
-/** Notify the course instructor when someone else comments (typically a student). */
+/** Notify the course instructor when a learner posts at the root of course Q&A (same thread model as legacy “comments”). */
 export async function onCourseCommentForInstructor({ course, commenterId, commenterName }) {
   const tid = course.teacher?.toString?.() || String(course.teacher);
   if (String(commenterId) === tid) return;
 
   await createInAppNotification({
     userId: tid,
-    title: "New comment on your course",
-    message: `${commenterName || "Someone"} left a comment on “${course.title}”.`,
+    title: "New question in course Q&A",
+    message: `${commenterName || "Someone"} posted in Questions & answers on “${course.title}”.`,
     type: "info",
     courseId: course._id,
     actionType: "course.comment",
@@ -301,11 +301,38 @@ export async function onRefundRejected({ studentId, courseId, courseTitle }) {
   });
 }
 
+/** Admins: a student submitted receipt / proof for a manual (offline) payment — needs verification. */
+export async function onManualPaymentProofSubmittedForAdmins({ order }) {
+  if (!order) return;
+  const courseId = order.course?._id || order.course;
+  const courseTitle =
+    (typeof order.course === "object" && order.course?.title) || "A course";
+  const studentName =
+    (typeof order.student === "object" && (order.student?.name || order.student?.email)) ||
+    "A student";
+  const orderNumber = order.orderNumber || String(order._id || "");
+  const amt = Number(order.amount);
+  const amountLine = Number.isFinite(amt) ? ` Amount: $${amt.toFixed(2)}.` : "";
+
+  const admins = await User.find({ role: "admin", isDeleted: { $ne: true } }).select("_id");
+  for (const a of admins) {
+    await createInAppNotification({
+      userId: a._id,
+      title: "Manual payment to review",
+      message: `${studentName} submitted proof for order ${orderNumber} — “${courseTitle}”.${amountLine} Open Manual payments in the admin area to approve or reject.`,
+      type: "important",
+      courseId: courseId || null,
+      actionType: "payment.manual_proof_admin",
+      sendEmail: true,
+    });
+  }
+}
+
 /** Student: manual bank/wallet payment proof was rejected; they may submit again. */
 export async function onManualPaymentRejected({ studentId, courseId, orderNumber, reason }) {
   const course = await Course.findById(courseId).select("title");
   const title = course?.title || "your course";
-  const note = reason ? ` Details: ${String(reason).slice(0, 500)}` : "";
+  const note = reason ? ` Reason: ${String(reason).slice(0, 500)}` : "";
   await createInAppNotification({
     userId: String(studentId),
     title: "Manual payment not verified",

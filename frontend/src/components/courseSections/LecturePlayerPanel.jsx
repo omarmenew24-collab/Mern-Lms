@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   CheckCircle,
   ExternalLink,
@@ -10,60 +11,15 @@ import {
   Download,
   Paperclip,
 } from "lucide-react";
-import { safeHttpUrl } from "../../lib/safeHttpUrl";
-
-function getYouTubeEmbedUrl(urlString) {
-  try {
-    const url = new URL(urlString);
-    if (url.hostname.includes("youtu.be")) {
-      const id = url.pathname.replace("/", "");
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-
-    if (url.hostname.includes("youtube.com")) {
-      const id = url.searchParams.get("v");
-      if (id) return `https://www.youtube.com/embed/${id}`;
-
-      const parts = url.pathname.split("/").filter(Boolean);
-      const embedIndex = parts.indexOf("embed");
-      if (embedIndex !== -1 && parts[embedIndex + 1]) {
-        return `https://www.youtube.com/embed/${parts[embedIndex + 1]}`;
-      }
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
-function getVimeoEmbedUrl(urlString) {
-  try {
-    const url = new URL(urlString);
-    if (!url.hostname.includes("vimeo.com")) return null;
-
-    const parts = url.pathname.split("/").filter(Boolean);
-    const numericPart = parts.find((part) => /^\d+$/.test(part));
-    return numericPart ? `https://player.vimeo.com/video/${numericPart}` : null;
-  } catch {
-    return null;
-  }
-}
-
-function isDirectVideoFile(urlString) {
-  try {
-    const pathname = new URL(urlString).pathname.toLowerCase();
-    return [".mp4", ".webm", ".ogg", ".mov", ".m4v"].some((ext) =>
-      pathname.endsWith(ext),
-    );
-  } catch {
-    return false;
-  }
-}
+import { getVideoPlaybackInfo } from "../../lib/lectureVideoEmbed";
 
 export default function LecturePlayerPanel({
   lecture,
-  title = "Lecture player",
+  title,
+  /** Label above the title in the footer band (e.g. "Preview" in instructor workspace). */
+  previewLabel,
+  /** When true, omit outer card border (nested inside another panel). */
+  embedded = false,
   resumeStorageKey,
   showMarkWatched = false,
   isLectureCompleted = false,
@@ -71,23 +27,11 @@ export default function LecturePlayerPanel({
   nextLecture,
   onNextLecture,
 }) {
+  const { t } = useTranslation();
+  const heading = title || t("workspace.lecturePlayer.defaultTitle");
   const videoRef = useRef(null);
   const contentType = lecture?.contentType || "video";
-  const safeVideoUrl = lecture?.videoUrl ? safeHttpUrl(lecture.videoUrl) : null;
-  const vimeoId =
-    typeof lecture?.vimeoVideoId === "string" && /^\d{3,20}$/.test(lecture.vimeoVideoId.trim())
-      ? lecture.vimeoVideoId.trim()
-      : null;
-  const youtubeEmbedUrl = safeVideoUrl
-    ? getYouTubeEmbedUrl(safeVideoUrl)
-    : null;
-  const vimeoEmbedUrl = vimeoId
-    ? `https://player.vimeo.com/video/${vimeoId}`
-    : safeVideoUrl
-      ? getVimeoEmbedUrl(safeVideoUrl)
-      : null;
-  const isFileVideo = safeVideoUrl ? isDirectVideoFile(safeVideoUrl) : false;
-  const embedUrl = youtubeEmbedUrl || vimeoEmbedUrl;
+  const { safeVideoUrl, isFileVideo, embedUrl } = lecture ? getVideoPlaybackInfo(lecture) : {};
 
   useEffect(() => {
     if (!lecture || contentType !== "video" || !isFileVideo || !resumeStorageKey || !videoRef.current) return;
@@ -141,16 +85,20 @@ export default function LecturePlayerPanel({
     };
   }, [contentType, isFileVideo, resumeStorageKey, lecture?._id]);
 
+  const shell = embedded
+    ? "overflow-hidden rounded-lg bg-white dark:bg-gray-900"
+    : "rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden";
+
   if (!lecture) {
     return (
-      <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
+      <div className={shell}>
         <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
-          <h3 className="text-sm font-bold text-gray-900 dark:text-white">{title}</h3>
+          <h3 className="text-sm font-bold text-gray-900 dark:text-white">{heading}</h3>
         </div>
         <div className="px-5 py-12 text-center">
           <Video className="w-10 h-10 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-            Select a lecture to start watching.
+            {t("workspace.lecturePlayer.selectToWatch")}
           </p>
         </div>
       </div>
@@ -160,11 +108,11 @@ export default function LecturePlayerPanel({
   // ─── FILE CONTENT TYPE ────────────────────────────────────────────────────
   if (contentType === "file") {
     return (
-      <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
+      <div className={shell}>
         <div className="px-6 py-8 text-center">
           <FileText className="w-12 h-12 text-brand-500 mx-auto mb-3" />
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-            {lecture.title || "File resource"}
+            {lecture.title || t("workspace.lecturePlayer.fileResource")}
           </h3>
           {lecture.description && (
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 max-w-md mx-auto">
@@ -179,12 +127,13 @@ export default function LecturePlayerPanel({
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-600 text-white font-semibold text-sm hover:bg-brand-700 transition-colors"
             >
               <Download className="w-4 h-4" />
-              {lecture.fileName || "Download file"}
+              {lecture.fileName || t("workspace.lecturePlayer.downloadFile")}
             </a>
           )}
         </div>
         <LectureFooter
           lecture={lecture}
+          previewLabel={previewLabel}
           showMarkWatched={showMarkWatched}
           isLectureCompleted={isLectureCompleted}
           onMarkWatched={onMarkWatched}
@@ -199,11 +148,11 @@ export default function LecturePlayerPanel({
   // ─── LINK CONTENT TYPE ────────────────────────────────────────────────────
   if (contentType === "link") {
     return (
-      <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
+      <div className={shell}>
         <div className="px-6 py-8 text-center">
           <Link2 className="w-12 h-12 text-blue-500 mx-auto mb-3" />
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-            {lecture.title || "External link"}
+            {lecture.title || t("workspace.lecturePlayer.externalLink")}
           </h3>
           {lecture.description && (
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 max-w-md mx-auto">
@@ -218,12 +167,13 @@ export default function LecturePlayerPanel({
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition-colors"
             >
               <ExternalLink className="w-4 h-4" />
-              {lecture.linkLabel || "Open link"}
+              {lecture.linkLabel || t("workspace.lecturePlayer.openLink")}
             </a>
           )}
         </div>
         <LectureFooter
           lecture={lecture}
+          previewLabel={previewLabel}
           showMarkWatched={showMarkWatched}
           isLectureCompleted={isLectureCompleted}
           onMarkWatched={onMarkWatched}
@@ -238,17 +188,18 @@ export default function LecturePlayerPanel({
   // ─── TEXT CONTENT TYPE ────────────────────────────────────────────────────
   if (contentType === "text") {
     return (
-      <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
+      <div className={shell}>
         <div className="px-6 py-6">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
-            {lecture.title || "Reading material"}
+            {lecture.title || t("workspace.lecturePlayer.readingMaterial")}
           </h3>
           <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-gray-700 dark:text-gray-200 leading-relaxed">
-            {lecture.textContent || lecture.description || "No content available."}
+            {lecture.textContent || lecture.description || t("workspace.lecturePlayer.noContent")}
           </div>
         </div>
         <LectureFooter
           lecture={lecture}
+          previewLabel={previewLabel}
           showMarkWatched={showMarkWatched}
           isLectureCompleted={isLectureCompleted}
           onMarkWatched={onMarkWatched}
@@ -262,7 +213,7 @@ export default function LecturePlayerPanel({
 
   // ─── VIDEO CONTENT TYPE (default) ────────────────────────────────────────
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
+    <div className={shell}>
       <div className="aspect-video bg-black">
         {isFileVideo && safeVideoUrl ? (
           <video
@@ -275,7 +226,7 @@ export default function LecturePlayerPanel({
         ) : embedUrl ? (
           <iframe
             src={embedUrl}
-            title={lecture.title || "Lecture video"}
+            title={lecture.title || t("workspace.lecturePlayer.lectureVideo")}
             className="h-full w-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
@@ -284,7 +235,7 @@ export default function LecturePlayerPanel({
           <div className="h-full w-full flex flex-col items-center justify-center gap-3 px-6 text-center">
             <PlayCircle className="w-14 h-14 text-white/80" />
             <p className="text-sm text-white/80">
-              This video source can&apos;t be embedded directly.
+              {t("workspace.lecturePlayer.cannotEmbed")}
             </p>
             {safeVideoUrl ? (
               <a
@@ -294,11 +245,11 @@ export default function LecturePlayerPanel({
                 className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100 transition"
               >
                 <ExternalLink className="w-4 h-4" />
-                Open video
+                {t("workspace.lecturePlayer.openVideo")}
               </a>
             ) : lecture.videoUrl ? (
               <p className="text-xs text-amber-200/90 max-w-sm">
-                This lecture&apos;s video URL is not allowed (only http/https links).
+                {t("workspace.lecturePlayer.urlNotAllowed")}
               </p>
             ) : null}
           </div>
@@ -307,6 +258,7 @@ export default function LecturePlayerPanel({
 
       <LectureFooter
         lecture={lecture}
+        previewLabel={previewLabel}
         showMarkWatched={showMarkWatched}
         isLectureCompleted={isLectureCompleted}
         onMarkWatched={onMarkWatched}
@@ -321,6 +273,7 @@ export default function LecturePlayerPanel({
 
 function LectureFooter({
   lecture,
+  previewLabel,
   showMarkWatched,
   isLectureCompleted,
   onMarkWatched,
@@ -328,14 +281,15 @@ function LectureFooter({
   onNextLecture,
   isFileVideo,
 }) {
+  const { t } = useTranslation();
   return (
     <div className="px-5 py-4 border-t border-gray-100 dark:border-gray-800">
       <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-brand-600 dark:text-brand-400">
         <PlayCircle className="w-3.5 h-3.5" />
-        Now playing
+        {previewLabel || t("workspace.lecturePlayer.nowPlaying")}
       </div>
       <h3 className="mt-1.5 text-base font-bold text-gray-900 dark:text-white">
-        {lecture.title || "Untitled lecture"}
+        {lecture.title || t("workspace.lecturePlayer.untitledLecture")}
       </h3>
       {lecture.description && lecture.contentType === "video" ? (
         <p className="mt-1.5 text-sm leading-relaxed text-gray-600 dark:text-gray-300 line-clamp-2">
@@ -355,7 +309,7 @@ function LectureFooter({
             }`}
           >
             <CheckCircle className="w-3.5 h-3.5" />
-            {isLectureCompleted ? "Completed" : "Mark as done"}
+            {isLectureCompleted ? t("workspace.lecturePlayer.completed") : t("workspace.lecturePlayer.markAsDone")}
           </button>
         )}
         {nextLecture && onNextLecture && (
@@ -365,14 +319,16 @@ function LectureFooter({
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:border-brand-400 dark:hover:border-brand-500 transition-colors"
           >
             <SkipForward className="w-3.5 h-3.5" />
-            Next: {nextLecture.title?.slice(0, 30) || "Untitled"}
+            {t("workspace.lecturePlayer.next", {
+              title: nextLecture.title?.slice(0, 30) || t("workspace.lecturePlayer.untitled"),
+            })}
             {nextLecture.title?.length > 30 ? "…" : ""}
           </button>
         )}
       </div>
       {isFileVideo === false && showMarkWatched && (
         <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">
-          Resume time is exact for direct video files; embedded players may vary.
+          {t("workspace.lecturePlayer.resumeNote")}
         </p>
       )}
     </div>
@@ -380,12 +336,13 @@ function LectureFooter({
 }
 
 function LectureAttachments({ attachments }) {
+  const { t } = useTranslation();
   if (!attachments?.length) return null;
   return (
     <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800">
       <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
         <Paperclip className="w-3 h-3" />
-        Resources ({attachments.length})
+        {t("workspace.lecturePlayer.resources", { count: attachments.length })}
       </div>
       <div className="space-y-1.5">
         {attachments.map((att, idx) => (
@@ -398,7 +355,7 @@ function LectureAttachments({ attachments }) {
             className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-800/60 hover:bg-brand-50 dark:hover:bg-brand-900/20 hover:text-brand-700 dark:hover:text-brand-300 transition-colors"
           >
             <Download className="w-3.5 h-3.5 flex-shrink-0" />
-            <span className="truncate">{att.fileName || "Attachment"}</span>
+            <span className="truncate">{att.fileName || t("workspace.lecturePlayer.attachment")}</span>
           </a>
         ))}
       </div>

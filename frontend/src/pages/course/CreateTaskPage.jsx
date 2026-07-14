@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft, ClipboardList, FileText, BookOpenCheck, FileUp,
   Calendar, Link2, X, ChevronDown,
@@ -12,24 +13,24 @@ const TASK_TYPES = [
   {
     value: "assignment",
     icon: FileText,
-    label: "Assignment",
-    hint: "Students submit a file",
+    labelKey: "workspace.taskForm.typeAssignmentLabel",
+    hintKey: "workspace.taskForm.typeAssignmentHint",
     active: "border-brand-400 bg-brand-50 dark:bg-brand-950/30 text-brand-700 dark:text-brand-300",
     iconActive: "text-brand-500",
   },
   {
     value: "exam",
     icon: BookOpenCheck,
-    label: "Exam",
-    hint: "Time-bounded test",
+    labelKey: "workspace.taskForm.typeExamLabel",
+    hintKey: "workspace.taskForm.typeExamHint",
     active: "border-amber-400 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300",
     iconActive: "text-amber-500",
   },
   {
     value: "resource",
     icon: FileUp,
-    label: "Resource",
-    hint: "File or link to share",
+    labelKey: "workspace.taskForm.typeResourceLabel",
+    hintKey: "workspace.taskForm.typeResourceHint",
     active: "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300",
     iconActive: "text-emerald-500",
   },
@@ -38,6 +39,7 @@ const TASK_TYPES = [
 const toInputValue = (d) => (d ? new Date(d).toISOString().slice(0, 16) : "");
 
 export default function TaskForm() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const taskFromState = location.state?.task || null;
@@ -111,7 +113,7 @@ export default function TaskForm() {
           finalResourceFileName = result.originalFilename || resourceFile.name;
         }
       } catch (err) {
-        toast.error(err.message || "File upload failed");
+        toast.error(err.message || t("workspace.taskForm.uploadFailed"));
         setIsUploadingResource(false);
         return;
       } finally {
@@ -120,7 +122,7 @@ export default function TaskForm() {
     }
 
     if (taskType === "resource" && !finalResourceUrl) {
-      toast.error("Add a file — upload one or paste a URL.");
+      toast.error(t("workspace.taskForm.addFile"));
       return;
     }
 
@@ -166,7 +168,7 @@ export default function TaskForm() {
           onClick={() => navigate(-1)}
           className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white mb-6 transition-colors"
         >
-          <ArrowLeft className="w-4 h-4 rtl-flip" /> Back
+          <ArrowLeft className="w-4 h-4 rtl-flip" /> {t("commonActions.back")}
         </button>
 
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
@@ -175,10 +177,10 @@ export default function TaskForm() {
             <ClipboardList className="w-5 h-5 text-brand-500" />
             <div>
               <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                {mode === "update" ? "Edit task" : "New task"}
+                {mode === "update" ? t("workspace.taskForm.editTask") : t("workspace.taskForm.newTask")}
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Assignments collect submissions · Exams are time-bounded · Resources share files or links
+                {t("workspace.taskForm.headerHint")}
               </p>
             </div>
           </div>
@@ -187,10 +189,10 @@ export default function TaskForm() {
             {/* Type selector */}
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                Task type
+                {t("workspace.taskForm.taskType")}
               </label>
               <div className="grid grid-cols-3 gap-2">
-                {TASK_TYPES.map(({ value, icon: Icon, label, hint, active, iconActive }) => (
+                {TASK_TYPES.map(({ value, icon: Icon, labelKey, hintKey, active, iconActive }) => (
                   <button
                     key={value}
                     type="button"
@@ -206,8 +208,8 @@ export default function TaskForm() {
                         taskType === value ? iconActive : "text-gray-400"
                       }`}
                     />
-                    <span>{label}</span>
-                    <span className="text-[10px] font-normal opacity-60 leading-tight">{hint}</span>
+                    <span>{t(labelKey)}</span>
+                    <span className="text-[10px] font-normal opacity-60 leading-tight">{t(hintKey)}</span>
                   </button>
                 ))}
               </div>
@@ -216,7 +218,7 @@ export default function TaskForm() {
             {/* Title */}
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                Title
+                {t("workspace.taskForm.title")}
               </label>
               <input
                 type="text"
@@ -225,10 +227,10 @@ export default function TaskForm() {
                 onChange={handleChange}
                 placeholder={
                   taskType === "exam"
-                    ? "e.g. Midterm Exam"
+                    ? t("workspace.taskForm.titlePhExam")
                     : taskType === "resource"
-                    ? "e.g. Course Slides — Week 3"
-                    : "e.g. Week 1 Assignment"
+                    ? t("workspace.taskForm.titlePhResource")
+                    : t("workspace.taskForm.titlePhAssignment")
                 }
                 className={inputClass}
                 required
@@ -238,7 +240,7 @@ export default function TaskForm() {
             {/* Description */}
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                {taskType === "resource" ? "Description (optional)" : "Instructions"}
+                {taskType === "resource" ? t("workspace.taskForm.descOptional") : t("workspace.taskForm.instructions")}
               </label>
               <textarea
                 name="description"
@@ -246,8 +248,8 @@ export default function TaskForm() {
                 onChange={handleChange}
                 placeholder={
                   taskType === "resource"
-                    ? "What is this file / resource for?"
-                    : "Describe what students need to do, requirements, format…"
+                    ? t("workspace.taskForm.descPhResource")
+                    : t("workspace.taskForm.descPhTask")
                 }
                 rows={3}
                 className={`${inputClass} h-auto py-2 leading-relaxed`}
@@ -258,7 +260,7 @@ export default function TaskForm() {
             {taskType === "assignment" && (
               <div className="p-4 rounded-xl border border-brand-200 dark:border-brand-800/50 bg-brand-50/30 dark:bg-brand-950/10">
                 <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                  <Calendar className="w-3.5 h-3.5" /> Submission deadline
+                  <Calendar className="w-3.5 h-3.5" /> {t("workspace.taskForm.submissionDeadline")}
                 </label>
                 <input
                   type="datetime-local"
@@ -276,7 +278,7 @@ export default function TaskForm() {
               <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/10 grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                    Start time
+                    {t("workspace.taskForm.startTime")}
                   </label>
                   <input
                     type="datetime-local"
@@ -289,7 +291,7 @@ export default function TaskForm() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                    End time
+                    {t("workspace.taskForm.endTime")}
                   </label>
                   <input
                     type="datetime-local"
@@ -307,7 +309,7 @@ export default function TaskForm() {
             {taskType === "resource" && (
               <div className="space-y-4 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/30 dark:bg-emerald-950/10">
                 <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
-                  Upload a file or paste a URL. Students will see a download / open button.
+                  {t("workspace.taskForm.resourceIntro")}
                 </p>
 
                 {resourceFile ? (
@@ -320,9 +322,9 @@ export default function TaskForm() {
                       <p className="text-xs text-gray-500 mt-0.5">
                         {(resourceFile.size / 1024 / 1024).toFixed(1)} MB
                         {isUploadingResource &&
-                          ` · Uploading… ${Math.round(resourceProgress * 100)}%`}
+                          ` · ${t("workspace.taskForm.uploadingPct", { pct: Math.round(resourceProgress * 100) })}`}
                         {!isUploadingResource && resourceProgress === 1 && (
-                          <span className="text-emerald-600 dark:text-emerald-400"> · Ready</span>
+                          <span className="text-emerald-600 dark:text-emerald-400"> · {t("workspace.taskForm.ready")}</span>
                         )}
                       </p>
                       {isUploadingResource && (
@@ -384,10 +386,10 @@ export default function TaskForm() {
                       }`}
                     />
                     <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                      {resourceDragging ? "Drop to add" : "Click or drag a file here"}
+                      {resourceDragging ? t("workspace.taskForm.dropToAdd") : t("workspace.taskForm.clickOrDrag")}
                     </p>
                     <span className="text-[10px] text-emerald-500/70 uppercase tracking-wider">
-                      PDF · DOCX · XLSX · PPTX · ZIP · any file
+                      {t("workspace.taskForm.fileTypes")}
                     </span>
                   </div>
                 )}
@@ -407,7 +409,7 @@ export default function TaskForm() {
                 <div className="flex items-center gap-2">
                   <div className="flex-1 h-px bg-emerald-100 dark:bg-emerald-900/40" />
                   <span className="text-[10px] font-bold text-emerald-500/60 uppercase tracking-wider">
-                    or paste a URL
+                    {t("workspace.taskForm.orPasteUrl")}
                   </span>
                   <div className="flex-1 h-px bg-emerald-100 dark:bg-emerald-900/40" />
                 </div>
@@ -420,20 +422,20 @@ export default function TaskForm() {
                     setResourceFile(null);
                     handleChange(e);
                   }}
-                  placeholder="https://docs.google.com/… or any direct link"
+                  placeholder={t("workspace.taskForm.resourceUrlPh")}
                   className={inputClass}
                 />
 
                 <div>
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                    Display name shown to students
+                    {t("workspace.taskForm.displayName")}
                   </label>
                   <input
                     type="text"
                     name="resourceFileName"
                     value={form.resourceFileName}
                     onChange={handleChange}
-                    placeholder="e.g. Week 3 Slides.pdf"
+                    placeholder={t("workspace.taskForm.displayNamePh")}
                     className={inputClass}
                   />
                 </div>
@@ -450,7 +452,7 @@ export default function TaskForm() {
                 >
                   <span className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
                     <Link2 className="w-4 h-4 text-gray-400" />
-                    Attach a link
+                    {t("workspace.taskForm.attachLink")}
                     {refLink.url && (
                       <span className="text-[10px] font-bold bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 px-1.5 py-0.5 rounded">
                         1
@@ -467,36 +469,36 @@ export default function TaskForm() {
                 {refLinkOpen && (
                   <div className="px-4 pb-4 pt-2 space-y-3 border-t border-gray-100 dark:border-gray-800 bg-sky-50/20 dark:bg-sky-950/10">
                     <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-relaxed">
-                      Optional — attach a Zoom meeting, Google Form, brief PDF, or any reference. Students will see an &quot;Open&quot; button next to this task.
+                      {t("workspace.taskForm.refLinkIntro")}
                     </p>
 
                     {/* Quick shortcuts */}
                     <div className="flex flex-wrap gap-1.5">
                       {[
-                        { label: "Zoom", prefix: "https://zoom.us/j/", defaultLabel: "Join Zoom" },
-                        { label: "Google Form", prefix: "https://forms.google.com/", defaultLabel: "Open form" },
-                        { label: "Google Doc", prefix: "https://docs.google.com/", defaultLabel: "Open document" },
-                        { label: "Other URL", prefix: "https://", defaultLabel: "Open link" },
-                      ].map(({ label, prefix, defaultLabel }) => (
+                        { labelKey: "workspace.taskForm.shortcutZoom", prefix: "https://zoom.us/j/", defaultLabelKey: "workspace.taskForm.shortcutZoomDefault" },
+                        { labelKey: "workspace.taskForm.shortcutForm", prefix: "https://forms.google.com/", defaultLabelKey: "workspace.taskForm.shortcutFormDefault" },
+                        { labelKey: "workspace.taskForm.shortcutDoc", prefix: "https://docs.google.com/", defaultLabelKey: "workspace.taskForm.shortcutDocDefault" },
+                        { labelKey: "workspace.taskForm.shortcutOther", prefix: "https://", defaultLabelKey: "workspace.taskForm.shortcutOtherDefault" },
+                      ].map(({ labelKey, prefix, defaultLabelKey }) => (
                         <button
-                          key={label}
+                          key={labelKey}
                           type="button"
                           onClick={() =>
                             setRefLink((prev) => ({
                               url: prefix,
-                              label: prev.label || defaultLabel,
+                              label: prev.label || t(defaultLabelKey),
                             }))
                           }
                           className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-sky-200 dark:border-sky-700 bg-white dark:bg-gray-900 text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-900/30 transition-colors"
                         >
-                          {label}
+                          {t(labelKey)}
                         </button>
                       ))}
                     </div>
 
                     <div>
                       <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                        URL
+                        {t("workspace.taskForm.url")}
                       </label>
                       <input
                         type="url"
@@ -504,13 +506,13 @@ export default function TaskForm() {
                         onChange={(e) =>
                           setRefLink((prev) => ({ ...prev, url: e.target.value }))
                         }
-                        placeholder="https://zoom.us/j/… or any link"
+                        placeholder={t("workspace.taskForm.urlPh")}
                         className={inputClass}
                       />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                        Button label (optional)
+                        {t("workspace.taskForm.buttonLabel")}
                       </label>
                       <input
                         type="text"
@@ -518,7 +520,7 @@ export default function TaskForm() {
                         onChange={(e) =>
                           setRefLink((prev) => ({ ...prev, label: e.target.value }))
                         }
-                        placeholder="e.g. Join Zoom · Open brief"
+                        placeholder={t("workspace.taskForm.buttonLabelPh")}
                         className={inputClass}
                       />
                     </div>
@@ -534,7 +536,7 @@ export default function TaskForm() {
                 onClick={() => navigate(-1)}
                 className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
-                Cancel
+                {t("workspace.taskForm.cancel")}
               </button>
               <button
                 type="submit"
@@ -542,12 +544,12 @@ export default function TaskForm() {
                 className="px-5 py-2 rounded-lg text-sm font-semibold bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isUploadingResource
-                  ? `Uploading… ${Math.round(resourceProgress * 100)}%`
+                  ? t("workspace.taskForm.uploadingPct", { pct: Math.round(resourceProgress * 100) })
                   : isCreating || isUpdating
-                  ? "Saving…"
+                  ? t("workspace.taskForm.saving")
                   : mode === "update"
-                  ? "Save changes"
-                  : "Create task"}
+                  ? t("workspace.taskForm.saveChanges")
+                  : t("workspace.taskForm.createTask")}
               </button>
             </div>
           </form>

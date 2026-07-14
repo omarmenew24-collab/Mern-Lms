@@ -57,7 +57,7 @@ Commercial LMS platform with:
 - Frontend: course pages/workspace components + `api/course`.
 - Behavior:
   - Course authoring/editing.
-  - Review/publish governance.
+  - Instructor or admin publishes to catalog (`POST /courses/:courseId/publish`); admin can still toggle visibility via `PATCH /courses/:courseId/publish` (admin only).
   - Public listing and detailed views.
 
 ### Lectures, Tasks, Submissions

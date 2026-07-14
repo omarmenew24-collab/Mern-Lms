@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Mail,
@@ -19,15 +20,20 @@ import toast from "react-hot-toast";
 
 import {
   useGetCoursesByTeacher,
-  useGetCoursesByStudent,
+  useAdminGetStudentEnrolledCourses,
   useGetStudentsByCourse,
   useGetCourseProgress,
+  useAdminUserLearnerSnapshots,
 } from "../../api/course";
 import { UseGetUserById } from "../../api/admin";
 import { axiosInstance } from "../../lib/axios";
 import { paths } from "../../config/paths";
+import LearnerEnrollmentDetailPanel from "../../components/courseSections/LearnerEnrollmentDetailPanel";
+import { useFormatter } from "../../lib/i18nFormatters";
 
 const UserDetailsPage = () => {
+  const { t } = useTranslation();
+  const { date } = useFormatter();
   const { userId } = useParams();
   const navigate = useNavigate();
 
@@ -44,7 +50,18 @@ const UserDetailsPage = () => {
     coursesbystudent,
     isLoading: isEnrolledLoading,
     isError: isEnrolledError,
-  } = useGetCoursesByStudent();
+  } = useAdminGetStudentEnrolledCourses(userId);
+
+  const { data: adminLearnerSnapshots = [], isLoading: adminSnapLoading } =
+    useAdminUserLearnerSnapshots(userId);
+
+  const snapByCourseId = useMemo(() => {
+    const m = new Map();
+    for (const s of adminLearnerSnapshots) {
+      if (s?.courseId != null) m.set(String(s.courseId), s);
+    }
+    return m;
+  }, [adminLearnerSnapshots]);
 
   if (isUserLoading)
     return (
@@ -53,7 +70,7 @@ const UserDetailsPage = () => {
       </div>
     );
   if (isUserError || !user)
-    return <p className="min-h-screen bg-gray-50 dark:bg-gray-950 p-6 text-red-500 font-medium">Failed to load user info.</p>;
+    return <p className="min-h-screen bg-gray-50 dark:bg-gray-950 p-6 text-red-500 font-medium">{t("workspace.userDetails.failedLoad")}</p>;
 
   const roleStyle = (r) => {
     switch (r) {
@@ -67,7 +84,7 @@ const UserDetailsPage = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-6">
       <div className="max-w-5xl mx-auto space-y-6">
         <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white transition-colors">
-          <ArrowLeft className="w-4 h-4 rtl-flip" /> Back
+          <ArrowLeft className="w-4 h-4 rtl-flip" /> {t("commonActions.back")}
         </button>
 
         {/* User Card */}
@@ -85,11 +102,11 @@ const UserDetailsPage = () => {
           </div>
 
           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
-            <InfoItem icon={<Mail className="w-4 h-4" />} label="Email" value={user.email} />
-            <InfoItem icon={<Shield className="w-4 h-4" />} label="Role" value={user.role} />
-            <InfoItem icon={<CheckCircle className="w-4 h-4" />} label="Status" value={user.status} />
-            <InfoItem icon={<Calendar className="w-4 h-4" />} label="Joined" value={new Date(user.createdAt).toLocaleDateString()} />
-            <InfoItem icon={<Clock className="w-4 h-4" />} label="Last Login" value={user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : "Never"} />
+            <InfoItem icon={<Mail className="w-4 h-4" />} label={t("workspace.userDetails.email")} value={user.email} />
+            <InfoItem icon={<Shield className="w-4 h-4" />} label={t("workspace.userDetails.role")} value={user.role} />
+            <InfoItem icon={<CheckCircle className="w-4 h-4" />} label={t("workspace.userDetails.status")} value={user.status} />
+            <InfoItem icon={<Calendar className="w-4 h-4" />} label={t("workspace.userDetails.joined")} value={date(user.createdAt)} />
+            <InfoItem icon={<Clock className="w-4 h-4" />} label={t("workspace.userDetails.lastLogin")} value={user.lastLogin ? date(user.lastLogin) : t("workspace.userDetails.never")} />
           </div>
         </div>
 
@@ -100,12 +117,12 @@ const UserDetailsPage = () => {
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white">Courses Taught</h2>
+              <h2 className="text-sm font-bold text-gray-900 dark:text-white">{t("workspace.userDetails.coursesTaught")}</h2>
             </div>
             <div className="p-6 space-y-4">
-              {isTeacherCoursesLoading && <p className="text-sm text-gray-500 dark:text-gray-400">Loading courses...</p>}
-              {isTeacherCoursesError && <p className="text-sm text-red-500">Error loading courses</p>}
-              {coursesbyteacher?.length === 0 && <p className="text-sm text-gray-400 dark:text-gray-500">No courses taught.</p>}
+              {isTeacherCoursesLoading && <p className="text-sm text-gray-500 dark:text-gray-400">{t("workspace.userDetails.loadingCourses")}</p>}
+              {isTeacherCoursesError && <p className="text-sm text-red-500">{t("workspace.userDetails.errorCourses")}</p>}
+              {coursesbyteacher?.length === 0 && <p className="text-sm text-gray-400 dark:text-gray-500">{t("workspace.userDetails.noCoursesTaught")}</p>}
               {coursesbyteacher?.map((course) => (
                 <div key={course._id} className="p-4 rounded-lg border border-gray-100 dark:border-gray-800 hover:border-brand-200 dark:hover:border-brand-900/50 transition-colors">
                   <h3 className="font-semibold text-gray-900 dark:text-white">{course.title}</h3>
@@ -121,17 +138,31 @@ const UserDetailsPage = () => {
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
             <BookOpen className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-            <h2 className="text-sm font-bold text-gray-900 dark:text-white">Courses Enrolled</h2>
+            <h2 className="text-sm font-bold text-gray-900 dark:text-white">{t("workspace.userDetails.coursesEnrolled")}</h2>
           </div>
           <div className="p-6 space-y-4">
-            {isEnrolledLoading && <p className="text-sm text-gray-500 dark:text-gray-400">Loading enrolled courses...</p>}
-            {isEnrolledError && <p className="text-sm text-red-500">Error loading enrolled courses</p>}
-            {coursesbystudent?.length === 0 && <p className="text-sm text-gray-400 dark:text-gray-500">No courses enrolled.</p>}
+            {isEnrolledLoading && <p className="text-sm text-gray-500 dark:text-gray-400">{t("workspace.userDetails.loadingEnrolled")}</p>}
+            {isEnrolledError && <p className="text-sm text-red-500">{t("workspace.userDetails.errorEnrolled")}</p>}
+            {coursesbystudent?.length === 0 && <p className="text-sm text-gray-400 dark:text-gray-500">{t("workspace.userDetails.noEnrolled")}</p>}
             {coursesbystudent?.map((course) => (
               <div key={course._id} className="p-4 rounded-lg border border-gray-100 dark:border-gray-800 hover:border-brand-200 dark:hover:border-brand-900/50 transition-colors">
                 <h3 className="font-semibold text-gray-900 dark:text-white">{course.title}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{course.description}</p>
                 <CourseProgress courseId={course._id} studentId={user._id} />
+                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                  <div className="flex items-center gap-1.5 mb-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    {t("workspace.userDetails.activityDetails")}
+                  </div>
+                  {adminSnapLoading ? (
+                    <p className="text-xs text-gray-400 dark:text-gray-500">{t("workspace.userDetails.loading")}</p>
+                  ) : (
+                    <LearnerEnrollmentDetailPanel
+                      snapshot={snapByCourseId.get(String(course._id))}
+                      omitCourseHeading
+                      suppressProgress
+                    />
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -142,6 +173,7 @@ const UserDetailsPage = () => {
 };
 
 function AdminUserPublicProfileCard({ userId, user }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [publicAbout, setPublicAbout] = useState("");
   const [linkInputs, setLinkInputs] = useState([""]);
@@ -169,10 +201,10 @@ function AdminUserPublicProfileCard({ userId, user }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["userbyid", userId] });
       queryClient.invalidateQueries({ queryKey: ["public-user", userId] });
-      toast.success("Public profile saved");
+      toast.success(t("workspace.userDetails.profileSaved"));
     },
     onError: (e) => {
-      toast.error(e?.response?.data?.message || "Failed to save");
+      toast.error(e?.response?.data?.message || t("workspace.userDetails.saveFailed"));
     },
   });
 
@@ -180,32 +212,32 @@ function AdminUserPublicProfileCard({ userId, user }) {
     <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-6">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div>
-          <h2 className="text-sm font-bold text-gray-900 dark:text-white">Public profile (optional)</h2>
+          <h2 className="text-sm font-bold text-gray-900 dark:text-white">{t("workspace.userDetails.publicProfile")}</h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Shown on the user&apos;s public page. Teachers also see this on course pages.
+            {t("workspace.userDetails.publicProfileDesc")}
           </p>
         </div>
         <Link
           to={paths.userPublic(userId)}
           className="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-1"
         >
-          Open /u/… page
+          {t("workspace.userDetails.openUPage")}
           <ExternalLink className="w-3.5 h-3.5" />
         </Link>
       </div>
       <div className="space-y-3">
         <div>
-          <label className="text-[10px] font-bold uppercase text-gray-500">About</label>
+          <label className="text-[10px] font-bold uppercase text-gray-500">{t("workspace.userDetails.about")}</label>
           <textarea
             value={publicAbout}
             onChange={(e) => setPublicAbout(e.target.value.slice(0, 4000))}
             rows={4}
             className="mt-1 w-full text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2"
-            placeholder="Bio / intro"
+            placeholder={t("workspace.userDetails.bioIntro")}
           />
         </div>
         <div>
-          <label className="text-[10px] font-bold uppercase text-gray-500">Project links (https)</label>
+          <label className="text-[10px] font-bold uppercase text-gray-500">{t("workspace.userDetails.projectLinks")}</label>
           <div className="mt-1 space-y-2">
             {linkInputs.map((val, i) => (
               <div key={i} className="flex gap-2">
@@ -239,7 +271,7 @@ function AdminUserPublicProfileCard({ userId, user }) {
               className="mt-1 text-xs text-brand-600 font-medium inline-flex items-center gap-1"
             >
               <Plus className="w-3.5 h-3.5" />
-              Add link
+              {t("workspace.userDetails.addLink")}
             </button>
           )}
         </div>
@@ -249,7 +281,7 @@ function AdminUserPublicProfileCard({ userId, user }) {
           onClick={() => mutate()}
           className="px-4 py-2 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-bold disabled:opacity-50"
         >
-          {isSavingPublic ? "Saving…" : "Save public profile"}
+          {isSavingPublic ? t("workspace.userDetails.savingShort") : t("workspace.userDetails.savePublicProfile")}
         </button>
       </div>
     </div>
@@ -267,24 +299,25 @@ const InfoItem = ({ icon, label, value }) => (
 );
 
 const StudentsTable = ({ courseId }) => {
+  const { t } = useTranslation();
   const { students, isLoading, isError } = useGetStudentsByCourse(courseId);
 
-  if (isLoading) return <p className="text-xs text-gray-400 mt-3">Loading students...</p>;
-  if (isError) return <p className="text-xs text-red-400 mt-3">Error loading students</p>;
+  if (isLoading) return <p className="text-xs text-gray-400 mt-3">{t("workspace.userDetails.loadingStudents")}</p>;
+  if (isError) return <p className="text-xs text-red-400 mt-3">{t("workspace.userDetails.errorStudents")}</p>;
   const rows = (Array.isArray(students) ? students : []).filter(Boolean);
-  if (rows.length === 0) return <p className="text-xs text-gray-400 mt-3">No students enrolled.</p>;
+  if (rows.length === 0) return <p className="text-xs text-gray-400 mt-3">{t("workspace.userDetails.noStudents")}</p>;
 
   return (
     <div className="mt-4">
       <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-brand-600 dark:text-brand-400">
-        <Users className="w-3.5 h-3.5" /> Enrolled Students
+        <Users className="w-3.5 h-3.5" /> {t("workspace.userDetails.enrolledStudents")}
       </div>
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/60">
-            <th className="p-2 text-start text-xs font-semibold text-gray-500 dark:text-gray-400">Name</th>
-            <th className="p-2 text-start text-xs font-semibold text-gray-500 dark:text-gray-400">Email</th>
-            <th className="p-2 text-start text-xs font-semibold text-gray-500 dark:text-gray-400">Status</th>
+            <th className="p-2 text-start text-xs font-semibold text-gray-500 dark:text-gray-400">{t("workspace.userDetails.name")}</th>
+            <th className="p-2 text-start text-xs font-semibold text-gray-500 dark:text-gray-400">{t("workspace.userDetails.email")}</th>
+            <th className="p-2 text-start text-xs font-semibold text-gray-500 dark:text-gray-400">{t("workspace.userDetails.status")}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -309,17 +342,19 @@ const StudentsTable = ({ courseId }) => {
 };
 
 const CourseProgress = ({ courseId, studentId }) => {
+  const { t } = useTranslation();
   const { progressData, isLoading, isError } = useGetCourseProgress(courseId, studentId);
 
-  if (isLoading) return <p className="text-xs text-gray-400 mt-3">Loading progress...</p>;
-  if (isError) return <p className="text-xs text-red-400 mt-3">Error loading progress</p>;
+  if (isLoading) return <p className="text-xs text-gray-400 mt-3">{t("workspace.userDetails.loadingProgress")}</p>;
+  if (isError) return <p className="text-xs text-red-400 mt-3">{t("workspace.userDetails.errorProgress")}</p>;
 
-  const percentage = progressData?.percentage || 0;
+  const raw = progressData?.progress ?? progressData?.percentage ?? 0;
+  const percentage = Math.round(Math.min(100, Math.max(0, Number(raw) || 0)));
 
   return (
     <div className="mt-4">
       <div className="flex items-center gap-1.5 mb-1.5 text-xs font-semibold text-brand-600 dark:text-brand-400">
-        <TrendingUp className="w-3.5 h-3.5" /> {percentage}% completed
+        <TrendingUp className="w-3.5 h-3.5" /> {t("workspace.userDetails.percentCompleted", { pct: percentage })}
       </div>
       <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-1.5 overflow-hidden">
         <div
