@@ -312,7 +312,8 @@ const StudentsTable = ({ courseId }) => {
       <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-brand-600 dark:text-brand-400">
         <Users className="w-3.5 h-3.5" /> {t("workspace.userDetails.enrolledStudents")}
       </div>
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[420px] text-sm">
         <thead>
           <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/60">
             <th className="p-2 text-start text-xs font-semibold text-gray-500 dark:text-gray-400">{t("workspace.userDetails.name")}</th>
@@ -337,6 +338,7 @@ const StudentsTable = ({ courseId }) => {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 };

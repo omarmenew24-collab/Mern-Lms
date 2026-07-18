@@ -33,10 +33,10 @@ const HeaderLeftSide = () => {
     (user?.role === "admin" && location.pathname.startsWith("/admin"));
 
   return (
-    <div className="flex items-center gap-4 shrink-0">
+    <div className="flex items-center gap-2 md:gap-4 min-w-0 md:shrink-0">
       <span
         onClick={() => navigate("/")}
-        className="text-xl font-extrabold tracking-tight cursor-pointer text-brand-700 dark:text-brand-400 hover:opacity-80 transition-opacity max-w-[200px] sm:max-w-none truncate"
+        className="text-xl font-extrabold tracking-tight cursor-pointer text-brand-700 dark:text-brand-400 hover:opacity-80 transition-opacity max-w-[160px] md:max-w-none truncate"
         title={siteName}
       >
         {siteName}
@@ -45,7 +45,7 @@ const HeaderLeftSide = () => {
       {(user?.role === "teacher" || user?.role === "admin") && (
         <button
           onClick={() => navigate(paths.teacherNewCourse)}
-          className="hidden sm:inline-flex text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+          className="hidden md:inline-flex text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
         >
           {t("nav.createCourse")}
         </button>
@@ -54,7 +54,7 @@ const HeaderLeftSide = () => {
       {user && (
         <button
           onClick={handleDashboard}
-          className={`hidden sm:inline-flex text-sm font-medium transition-colors ${
+          className={`hidden md:inline-flex text-sm font-medium transition-colors ${
             isOnMyPage
               ? "text-brand-600 dark:text-brand-400 font-semibold"
               : "text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400"
@@ -66,7 +66,7 @@ const HeaderLeftSide = () => {
 
       <Link
         to={paths.about}
-        className={`hidden sm:inline-flex text-sm font-medium transition-colors ${
+        className={`hidden md:inline-flex text-sm font-medium transition-colors ${
           location.pathname === paths.about
             ? "text-brand-600 dark:text-brand-400 font-semibold"
             : "text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400"

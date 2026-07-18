@@ -59,12 +59,14 @@ const HeaderRightSide = () => {
   }, []);
 
   return (
-    <div className="flex items-center gap-2 shrink-0">
-      <LanguageSwitcher />
+    <div className="flex items-center gap-1 sm:gap-2 md:shrink-0">
+      <div className="hidden md:block">
+        <LanguageSwitcher />
+      </div>
 
       <button
         onClick={onToggleDarkMode}
-        className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        className="hidden md:inline-flex p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         title={darkMode ? t("nav.lightMode") : t("nav.darkMode")}
       >
         {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
@@ -105,7 +107,7 @@ const HeaderRightSide = () => {
       )}
 
       {user && hasHydrated ? (
-        <div className="relative" ref={dropdownRef}>
+        <div className="relative hidden md:block" ref={dropdownRef}>
           <button
             onClick={() => setOpen(!open)}
             className="flex items-center gap-2 ps-1 pe-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -177,7 +179,7 @@ const HeaderRightSide = () => {
           )}
         </div>
       ) : (
-        <div className="flex items-center gap-2">
+        <div className="hidden md:flex items-center gap-2">
           <GoogleSignIn />
           <button
             onClick={() => navigate("/login")}

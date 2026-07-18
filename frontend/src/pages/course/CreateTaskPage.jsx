@@ -191,7 +191,7 @@ export default function TaskForm() {
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
                 {t("workspace.taskForm.taskType")}
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {TASK_TYPES.map(({ value, icon: Icon, labelKey, hintKey, active, iconActive }) => (
                   <button
                     key={value}
@@ -275,7 +275,7 @@ export default function TaskForm() {
 
             {/* ── Exam: start / end ── */}
             {taskType === "exam" && (
-              <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/10 grid grid-cols-2 gap-3">
+              <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/10 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
                     {t("workspace.taskForm.startTime")}

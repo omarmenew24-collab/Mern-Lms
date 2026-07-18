@@ -47,7 +47,7 @@ const Hero = () => {
         aria-hidden
       />
 
-      <div className="relative max-w-6xl mx-auto px-6 py-16 sm:py-20 md:py-24 lg:py-28">
+      <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20 md:py-24 lg:py-28">
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:items-center lg:gap-10 xl:gap-14">
           <div className="max-w-2xl space-y-6 lg:max-w-none">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 text-xs font-semibold tracking-wide">

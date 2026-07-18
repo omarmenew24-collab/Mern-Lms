@@ -70,6 +70,22 @@
     transform: scaleX(-1);
   }
 
+  /* Mobile nav drawer panel — slides in from the inline-start edge.
+     Uses physical dir overrides (like .toggle-thumb) so it is correct in both LTR and RTL. */
+  .drawer-panel {
+    transition: transform 250ms ease;
+  }
+  html[dir="ltr"] .drawer-panel {
+    transform: translateX(-100%);
+  }
+  html[dir="rtl"] .drawer-panel {
+    transform: translateX(100%);
+  }
+  html[dir="ltr"] .drawer-panel.drawer-panel-open,
+  html[dir="rtl"] .drawer-panel.drawer-panel-open {
+    transform: translateX(0);
+  }
+
   /* Toggle switch thumb — moves correctly in both LTR and RTL */
   .toggle-thumb {
     position: absolute;

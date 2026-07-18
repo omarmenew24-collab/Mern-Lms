@@ -444,7 +444,7 @@ const CoursePublic = () => {
 
       {/* Hero banner */}
       <div className="bg-gray-900 dark:bg-gray-950 border-b border-gray-800">
-        <div className="max-w-6xl mx-auto px-6 py-10 lg:py-14">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 lg:py-14">
           <div className="max-w-3xl min-w-0">
             <span className="inline-block text-xs font-semibold uppercase tracking-wider px-2.5 py-1 rounded bg-brand-900/50 text-brand-300 mb-3">
               {course.category}
@@ -506,7 +506,7 @@ const CoursePublic = () => {
 
       {canEditCatalog && editingCatalog && (
         <div className="bg-gray-50 dark:bg-gray-900/80 border-b border-gray-200 dark:border-gray-800">
-          <div className="max-w-6xl mx-auto px-6 py-6">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
             <div className="rounded-xl border-2 border-brand-500/35 bg-white dark:bg-gray-900 shadow-sm p-5 sm:p-6 space-y-5">
               <div>
                 <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">{t("coursePublic.titleAndDesc")}</p>
@@ -579,7 +579,7 @@ const CoursePublic = () => {
       )}
 
       {/* Main content */}
-      <div className="max-w-6xl mx-auto px-6 py-10 grid grid-cols-1 lg:grid-cols-3 gap-10">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 grid grid-cols-1 lg:grid-cols-3 gap-10">
         {/* Left column */}
         <div className="lg:col-span-2 space-y-8">
           {/* What you'll learn */}
@@ -892,8 +892,8 @@ const CoursePublic = () => {
         </div>
 
         {/* Sticky sidebar */}
-        <div className="lg:col-span-1">
-          <div className="sticky top-20 space-y-4">
+        <div className="lg:col-span-1 order-first lg:order-none">
+          <div className="lg:sticky lg:top-20 space-y-4">
             <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-md overflow-hidden">
               <img
                 src={course.image || FALLBACK_IMG}
